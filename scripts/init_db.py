@@ -24,11 +24,11 @@ def start_database():
     # Checks if database already exists in the system
     cursor = db.cursor()
     #cursor.execute("CREATE DATABASE IF NOT EXIST %s", db_name)
-    cursor.execute("SHOW DATABASES LIKE '%s';", db_name)
+    cursor.execute("SHOW DATABASES LIKE '%s';", (db_name,))
 
     # Creates the database in the server if it does not exist
     if cursor.rowcount <= 0:    
-        with open("schema.sql") as file:
+        with open("../app/database/schema.sql") as file:
             script = file.read()
         cursor.execute(script, multi=True)
         results = cursor.fetchall()
