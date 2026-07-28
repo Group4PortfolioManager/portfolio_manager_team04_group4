@@ -26,3 +26,19 @@ async function getAssets() {
 async function getStockHistory(ticker, startDate, endDate, interval = '1d') {
   return fetchJson(`${API_BASE_URL}/stocks/${ticker}/history?start_date=${startDate}&end_date=${endDate}&interval=${interval}`);
 }
+
+async function buyHolding(portfolioId, ticker, shares, price) {
+  return fetch(`${API_BASE_URL}/portfolios/${portfolioId}/buy`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker, shares, price })
+  }).then(async (response) => ({ response, data: await response.json() }));
+}
+
+async function sellHolding(portfolioId, ticker, shares, price) {
+  return fetch(`${API_BASE_URL}/portfolios/${portfolioId}/sell`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker, shares, price })
+  }).then(async (response) => ({ response, data: await response.json() }));
+}
