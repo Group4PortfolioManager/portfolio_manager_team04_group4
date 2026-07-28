@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio API Tester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        button {
+            display: block;
+            margin: 10px 0;
+            padding: 10px 20px;
+            width: 250px;
+            cursor: pointer;
+        }
+
+        pre {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            background: #f4f4f4;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Portfolio API Tester</h1>
+
+<button onclick="testGetPortfolio()">Get Portfolio</button>
+<button onclick="testGetHoldings()">Get Holdings</button>
+<button onclick="testGetHolding()">Get Holding</button>
+<button onclick="testGetAssets()">Get Assets</button>
+<button onclick="testGetStockHistory()">Get Stock History</button>
+<button onclick="testBuyHolding()">Buy Holding</button>
+<button onclick="testSellHolding()">Sell Holding</button>
+
+<pre id="output">Results will appear here...</pre>
+
+<script src="js/api.js"></script>
+<script>
+function display(result) {
+    document.getElementById("output").textContent =
+        JSON.stringify(result, null, 2);
+}
+
+async function testGetPortfolio() {
+    try {
+        const result = await getPortfolio(1);
+        display(result);
+    } catch (err) {
+        display(err);
+    }
+}
+
+async function testGetHoldings() {
+    try {
+        const result = await getHoldings(1);
+        display(result);
+    } catch (err) {
+        display(err);
+    }
+}
+
+async function testGetHolding() {
+    try {
+        const result = await getHolding(1);
+        display(result);
+    } catch (err) {
+        display(err);
+    }
+}
+
+async function testGetAssets() {
+    try {
+        const result = await getAssets();
+        display(result);
+    } catch (err) {
+        display(err);
+    }
+}
+
+async function testGetStockHistory() {
+    try {
+        const result = await getStockHistory(
+            "AAPL",
+            "2024-01-01",
+            "2024-12-31",
+            "1d"
+        );
+        display(result);
+    } catch (err) {
+        display(err);
+    }
+}
+
+async function testBuyHolding() {
+    try {
+        const result = await buyHolding(1, "AAPL", 2, 190.25);
+        display(result);
+    } catch (err) {
+        display(err);
+    }
+}
+
+async function testSellHolding() {
+    try {
+        const result = await sellHolding(1, "AAPL", 1, 195.00);
+        display(result);
+    } catch (err) {
+        display(err);
+    }
+}
+</script>
+
+</body>
+</html>
