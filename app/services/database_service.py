@@ -36,3 +36,21 @@ class DataBaseService:
         if asset_id == 2:
             return {'asset_id': 2, 'asset_type': 'stock'}
         return None
+
+    def buy_holding(self, portfolio_id, ticker, shares, price):
+        return {
+            'portfolio_id': portfolio_id,
+            'ticker': ticker.upper(),
+            'shares': shares,
+            'price': price,
+            'action': 'buy'
+        }
+
+    def sell_holding(self, portfolio_id, ticker, shares, price):
+        return {
+            'portfolio_id': portfolio_id,
+            'ticker': ticker.upper(),
+            'shares': shares,
+            'price': price,
+            'action': 'sell'
+        }
