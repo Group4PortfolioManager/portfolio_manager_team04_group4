@@ -4,11 +4,15 @@ File used to connect to the database
 
 import mysql.connector
 import os
-from dotenv import load_dotev
+from dotenv import load_dotenv
+import subprocess
 
 def start_database():
     # Load environment variables
-    load_dotev()
+    load_dotenv()
+    
+    # Start SQL Service
+    subprocess.run(["powershell", "-Command", "Start-Service mysql80"], check=True)
 
     # Connect to MySQL Server
     db = mysql.connector.connect(
@@ -24,13 +28,15 @@ def start_database():
     # Checks if database already exists in the system
     cursor = db.cursor()
     #cursor.execute("CREATE DATABASE IF NOT EXIST %s", db_name)
-    cursor.execute("SHOW DATABASES LIKE '%s';", (db_name,))
+    cursor.execute("SHOW DATABASES LIKE %s;", (db_name,))
+    
+    db_exists = cursor.fetchall()
 
     # Creates the database in the server if it does not exist
-    if cursor.rowcount <= 0:    
-        with open("../app/database/schema.sql") as file:
+    if not db_exists:    
+        with open("app/database/schema.sql") as file:
             script = file.read()
-        cursor.execute(script, multi=True)
+        cursor.execute(script)
         results = cursor.fetchall()
         for line in results:
             print(line)
