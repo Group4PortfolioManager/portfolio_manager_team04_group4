@@ -4,7 +4,7 @@ import HoldingRow from "./HoldingRow";
 
 function HoldingsTable({ showLink = false }) {
   return (
-    <div className="panel">
+    <div className="panel panel-holdings">
       <h2>Your Holdings</h2>
 
       <table>
