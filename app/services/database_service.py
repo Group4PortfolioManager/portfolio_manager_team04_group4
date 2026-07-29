@@ -1,41 +1,56 @@
+from app.database import get_db_connection
+
 class DataBaseService:
+    def __init__(self):
+        self._db = None
+
+    @property
+    def db(self):
+        if self._db is None:
+            self._db = get_db_connection()
+        return self._db
+
     def get_all_portfolios(self):
-        return [
-            {'portfolio_id': 1, 'portfolio_name': 'Demo Portfolio', 'created_at': '2023-01-01'}
-        ]
+        cursor = self.db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM portfolio;") # Load Portfolios
+        portfolios = cursor.fetchall()
+        cursor.close()
+        return portfolios
 
     def get_portfolio_by_id(self, portfolio_id):
-        if portfolio_id == 1:
-            return {'portfolio_id': 1, 'portfolio_name': 'Demo Portfolio', 'created_at': '2023-01-01'}
-        return None
+        cursor = self.db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM portfolio WHERE portfolio_id = %s;", (portfolio_id,)) # Load Portfolios
+        portfolio = cursor.fetchall()
+        cursor.close()
+        return portfolio
 
     def get_portfolio_holdings(self, portfolio_id):
-        if portfolio_id == 1:
-            return [
-                {'holding_id': 1, 'portfolio_id': 1,'asset_id': 1, 'ticker': 'AAPL', 'company_name': 'Apple Inc.', 'shares': 10, 'current_price': 150.0, 'market_value': 1500.0, 'cost_basis': 1200.0, 'profit_loss': 300.0},
-                {'holding_id': 2, 'portfolio_id': 1, 'asset_id': 2, 'ticker': 'MSFT', 'company_name': 'Microsoft Corp.', 'shares': 5, 'current_price': 300.0, 'market_value': 1500.0, 'cost_basis': 1500.0, 'profit_loss': 0.0}
-            ]
-        return []
+        cursor = self.db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM holdings WHERE portfolio_id = %s;", (portfolio_id,)) # Loads Holdings Related to Specific Portfolio
+        holdings = cursor.fetchall()
+        cursor.close()
+        return holdings
 
     def get_holding_by_id(self, holding_id):
-        if holding_id == 1:
-            return {'holding_id': 1, 'portfolio_id': 1,'asset_id': 1, 'ticker': 'AAPL', 'company_name': 'Apple Inc.', 'shares': 10, 'current_price': 150.0, 'market_value': 1500.0, 'cost_basis': 1200.0, 'profit_loss': 300.0}
-        if holding_id == 2:
-            return {'holding_id': 2, 'portfolio_id': 1, 'asset_id': 2, 'ticker': 'MSFT', 'company_name': 'Microsoft Corp.', 'shares': 5, 'current_price': 300.0, 'market_value': 1500.0, 'cost_basis': 1500.0, 'profit_loss': 0.0}
-        return None
+        cursor = self.db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM holdings WHERE holding_id = %s;", (holding_id,)) # Loads Holdings Related to Specific Portfolio
+        holding = cursor.fetchall()
+        cursor.close()
+        return holding
 
     def get_all_assets(self):
-        return [
-            {'asset_id': 1, 'asset_type': 'stock'},
-            {'asset_id': 2, 'asset_type': 'stock'}
-        ]
-    
+        cursor = self.db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM asset;") # Loads Assets
+        assets = cursor.fetchall()
+        cursor.close()
+        return assets
+
     def get_asset_by_id(self, asset_id):
-        if asset_id == 1:
-            return {'asset_id': 1, 'asset_type': 'stock'}
-        if asset_id == 2:
-            return {'asset_id': 2, 'asset_type': 'stock'}
-        return None
+        cursor = self.db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM asset WHERE asset_id = %s;", (asset_id,)) # Loads Holdings Related to Specific Portfolio
+        asset = cursor.fetchall()
+        cursor.close()
+        return asset
 
     def buy_holding(self, portfolio_id, ticker, shares, price):
         return {
