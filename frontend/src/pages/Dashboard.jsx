@@ -7,13 +7,6 @@ import { assetAllocation } from "../data/mockData";
 function Dashboard() {
   return (
     <div className="dashboard-grid">
-      <AssetAllocation />
-      <PerformanceChart />
-
-      <div className="span-2">
-        <HoldingsTable showLink />
-      </div>
-
       <div className="stat-tile-row span-2">
         {assetAllocation.map((asset) => (
           <StatTile
@@ -22,6 +15,13 @@ function Dashboard() {
             value={`$${asset.value.toLocaleString()}`}
           />
         ))}
+      </div>
+
+      <AssetAllocation />
+      <PerformanceChart />
+
+      <div className="span-2">
+        <HoldingsTable showLink />
       </div>
     </div>
   );

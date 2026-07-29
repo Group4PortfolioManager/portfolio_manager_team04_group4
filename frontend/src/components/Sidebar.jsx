@@ -12,8 +12,7 @@ function Sidebar() {
   return (
     <nav className="sidebar">
       <div className="sidebar-brand">
-        <ChartCandlestick size={20} color="#1fd67a" />
-        Port<span>folio</span>
+        <span className="logo-green">Port</span><span className="logo-red">folio</span>
       </div>
 
       {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
