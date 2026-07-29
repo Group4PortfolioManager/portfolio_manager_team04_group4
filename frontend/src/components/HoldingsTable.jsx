@@ -1,8 +1,30 @@
+import { useState, useEffect } from 'react';
 import { Link } from "react-router-dom";
-import { holdings } from "../data/mockData";
+import { getHoldings } from '../services/api';
 import HoldingRow from "./HoldingRow";
 
 function HoldingsTable({ showLink = false }) {
+  const [holdings, setHoldings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function fetchHoldings() {
+      try {
+        const { data } = await getHoldings(1); // portfolioId = 1
+        setHoldings(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchHoldings();
+  }, []);
+
+  if (loading) return <div className="panel"><h2>Your Holdings</h2><p>Loading...</p></div>;
+  if (error) return <div className="panel"><h2>Your Holdings</h2><p>Error: {error}</p></div>;
+
   return (
     <div className="panel">
       <h2>Your Holdings</h2>
@@ -23,8 +45,8 @@ function HoldingsTable({ showLink = false }) {
         <tbody>
           {holdings.map((holding) => (
             <HoldingRow
-              key={holding.ticker}
-              holding={holding}
+              key={holding.holding_id}
+              holdingId={holding.holding_id}
             />
           ))}
         </tbody>
