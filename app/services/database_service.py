@@ -12,21 +12,21 @@ class DataBaseService:
 
     def get_all_portfolios(self):
         cursor = self.db.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM Portfolio;") # Load Portfolios
+        cursor.execute("SELECT * FROM portfolio;") # Load Portfolios
         portfolios = cursor.fetchall()
         cursor.close()
         return portfolios
 
     def get_portfolio_by_id(self, portfolio_id):
         cursor = self.db.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM Portfolio WHERE portfolio_id = %s;", (portfolio_id,)) # Load Portfolios
+        cursor.execute("SELECT * FROM portfolio WHERE portfolio_id = %s;", (portfolio_id,)) # Load Portfolios
         portfolio = cursor.fetchall()
         cursor.close()
         return portfolio
 
     def get_portfolio_holdings(self, portfolio_id):
         cursor = self.db.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM portfolio WHERE portfolio_id = %s;", (portfolio_id,)) # Loads Holdings Related to Specific Portfolio
+        cursor.execute("SELECT * FROM holdings WHERE portfolio_id = %s;", (portfolio_id,)) # Loads Holdings Related to Specific Portfolio
         holdings = cursor.fetchall()
         cursor.close()
         return holdings
@@ -40,7 +40,7 @@ class DataBaseService:
 
     def get_all_assets(self):
         cursor = self.db.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM Asset;") # Loads Assets
+        cursor.execute("SELECT * FROM asset;") # Loads Assets
         assets = cursor.fetchall()
         cursor.close()
         return assets
