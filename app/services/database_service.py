@@ -2,8 +2,14 @@ from app.database import get_db_connection
 
 class DataBaseService:
     def __init__(self):
-        self.db = get_db_connection()
-        
+        self._db = None
+
+    @property
+    def db(self):
+        if self._db is None:
+            self._db = get_db_connection()
+        return self._db
+
     def get_all_portfolios(self):
         cursor = self.db.cursor(dictionary=True)
         cursor.execute("SELECT * FROM Portfolio;") # Load Portfolios
