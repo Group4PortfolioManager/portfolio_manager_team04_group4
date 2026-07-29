@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 from app.config import Config
 from app.routes.api_routes import api_bp
 from scripts.init_db import start_database
@@ -17,6 +18,7 @@ assets, holdings = get_initial_data(db, portfolio)
 
 app = Flask(__name__)
 app.config.from_object(Config)
+CORS(app)
 
 @app.route('/')
 def index():
