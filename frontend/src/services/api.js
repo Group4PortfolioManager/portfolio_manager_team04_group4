@@ -27,6 +27,10 @@ async function getStockHistory(ticker, startDate, endDate, interval = '1d') {
   return fetchJson(`${API_BASE_URL}/stocks/${ticker}/history?start_date=${startDate}&end_date=${endDate}&interval=${interval}`);
 }
 
+async function getStock(ticker) {
+  return fetchJson(`${API_BASE_URL}/stocks/${ticker}`);
+}
+
 async function buyHolding(portfolioId, ticker, shares, price) {
   return fetch(`${API_BASE_URL}/portfolios/${portfolioId}/buy`, {
     method: 'POST',
@@ -50,6 +54,7 @@ export {
   getHolding,
   getAssets,
   getStockHistory,
+  getStock,
   buyHolding,
   sellHolding,
 };

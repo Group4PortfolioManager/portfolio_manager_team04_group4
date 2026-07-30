@@ -1,6 +1,6 @@
 import { portfolioSummary, performanceHistory } from "../data/mockData";
 
-function Header() {
+function Header({ onAddAsset }) {
   const previousValue = performanceHistory[performanceHistory.length - 2].value;
   const daysGain = performanceHistory[performanceHistory.length - 1].value - previousValue;
   const daysGainPercent = (daysGain / previousValue) * 100;
@@ -41,7 +41,7 @@ function Header() {
       </div>
 
       <div className="topbar-actions">
-        <button type="button" className="btn btn-primary">+ Add Asset</button>
+        <button type="button" className="btn btn-primary" onClick={onAddAsset}>+ Add Asset</button>
         <button type="button" className="btn btn-secondary">Remove Asset</button>
       </div>
     </header>
