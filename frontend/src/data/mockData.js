@@ -4,9 +4,9 @@ export const holdings = [
     company_name: "Apple Inc.",
     shares: 25,
     current_price: 225.50,
-    cost_basis: 180.00,
+    cost_basis: 250.00,
     market_value: 5637.50,
-    profit_loss: 1137.50
+    profit_loss: -612.50
   },
   {
     ticker: "MSFT",
@@ -29,7 +29,7 @@ export const holdings = [
   {
     ticker: "TSLA",
     company_name: "Tesla Inc.",
-    shares: 10,
+    shares: 10.2,
     current_price: 350.00,
     cost_basis: 300.00,
     market_value: 3500.00,
@@ -77,7 +77,7 @@ export const performanceHistory = [
   { label: "May", value: 15700 },
   { label: "May", value: 16400 },
   { label: "May", value: 16150 },
-  { label: "Jun", value: 16900 },
+  { label: "Jun", value: 14000 },
   { label: "Jun", value: 17300 },
   { label: "Jun", value: 17050 },
   { label: "Jul", value: 17800 },

@@ -10,10 +10,16 @@
   --text: #e7e9ee;
   --text-dim: #8891a3;
   --text-faint: #565f70;
-  --accent: #1fd67a;
-  --accent-dim: rgba(31, 214, 122, 0.12);
-  --positive: #1fd67a;
-  --negative: #ff4d5e;
+
+  --accent: #7e1fd6;
+  --accent-dim: rgba(139,92,246,.12);
+
+  --positive: #22c55e;
+  --positive-bg: rgba(34,197,94,.15);
+  
+  --negative: #ef4444;
+  --negative-bg: rgba(239,68,68,.15);
+  
   --mono: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
@@ -29,4 +35,28 @@ body {
 
 #root {
   width: 100%;
+}
+
+.positive{
+    color:var(--positive);
+}
+
+.negative{
+    color:var(--negative);
+}
+
+.badge-positive{
+    color:var(--positive);
+    background:var(--positive-bg);
+    padding:4px 10px;
+    border-radius:6px;
+    font-weight:600;
+}
+
+.badge-negative{
+    color:var(--negative);
+    background:var(--negative-bg);
+    padding:4px 10px;
+    border-radius:6px;
+    font-weight:600;
 }

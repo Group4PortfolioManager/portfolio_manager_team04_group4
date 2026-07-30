@@ -26,7 +26,7 @@ function HoldingsTable({ showLink = false }) {
   if (error) return <div className="panel"><h2>Your Holdings</h2><p>Error: {error}</p></div>;
 
   return (
-    <div className="panel">
+    <div className="panel panel-holdings">
       <h2>Your Holdings</h2>
 
       <table>
