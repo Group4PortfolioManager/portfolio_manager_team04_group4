@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { getHolding, getStock } from "../services/api";
-import SellHoldingModal from "./SellHoldingModal";
+// import SellHoldingModal from "./SellHoldingModal";
 
 function HoldingRow({ holding, holdingId }) {
   const [data, setData] = useState(holding || null);
   const [loading, setLoading] = useState(!holding && !!holdingId);
-  const [isSellOpen, setIsSellOpen] = useState(false);
-  const [sellError, setSellError] = useState(null);
+  // const [isSellOpen, setIsSellOpen] = useState(false);
+  // const [sellError, setSellError] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -59,7 +59,7 @@ function HoldingRow({ holding, holdingId }) {
   if (loading || !data) {
     return (
       <tr>
-        <td colSpan="8">Loading...</td>
+        <td colSpan="7">Loading...</td>
       </tr>
     );
   }
@@ -92,32 +92,6 @@ function HoldingRow({ holding, holdingId }) {
         {" "}
         ({profitLossPct >= 0 ? "+" : "-"}
         {Math.abs(profitLossPct).toFixed(2)}%)
-      </td>
-      <td>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => setIsSellOpen(true)}
-        >
-          Sell
-        </button>
-        {sellError && <div className="modal-error">{sellError}</div>}
-        <SellHoldingModal
-          isOpen={isSellOpen}
-          onClose={() => {
-            setIsSellOpen(false);
-            setSellError(null);
-          }}
-          holding={data}
-          onSubmit={(result) => {
-            if (!result.response.ok) {
-              setSellError(result.data?.error || "Unable to sell holding.");
-            } else {
-              setSellError(null);
-              setIsSellOpen(false);
-            }
-          }}
-        />
       </td>
     </tr>
   );
