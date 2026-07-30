@@ -20,7 +20,7 @@ def get_portfolio(portfolio_id):
 def get_portfolio_holdings(portfolio_id):
     holdings = database_service.get_portfolio_holdings(portfolio_id)
     if not holdings:
-        return {'error': 'No holdings found for this portfolio'}, 404
+        return [], 200
     return holdings, 200
 
 
@@ -85,3 +85,31 @@ def get_stock_history(ticker):
         'interval': interval,
         'data': df.reset_index().to_dict(orient='records')
     }, 200
+
+
+@api_bp.route('/portfolios/<int:portfolio_id>/buy', methods=['POST'])
+def buy_holding(portfolio_id):
+    data = request.get_json(silent=True) or {}
+    ticker = data.get('ticker')
+    shares = data.get('shares')
+    price = data.get('price')
+
+    if not ticker or shares is None or price is None:
+        return {'error': 'ticker, shares, and price are required'}, 400
+
+    trade = database_service.buy_holding(portfolio_id, ticker, shares, price)
+    return trade, 200
+
+
+@api_bp.route('/portfolios/<int:portfolio_id>/sell', methods=['POST'])
+def sell_holding(portfolio_id):
+    data = request.get_json(silent=True) or {}
+    ticker = data.get('ticker')
+    shares = data.get('shares')
+    price = data.get('price')
+
+    if not ticker or shares is None or price is None:
+        return {'error': 'ticker, shares, and price are required'}, 400
+
+    trade = database_service.sell_holding(portfolio_id, ticker, shares, price)
+    return trade, 200
