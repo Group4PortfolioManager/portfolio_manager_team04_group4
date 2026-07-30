@@ -1,8 +1,53 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { holdings } from "../data/mockData";
+import { getHoldings } from "../services/api";
 import HoldingRow from "./HoldingRow";
 
 function HoldingsTable({ showLink = false }) {
+  const [holdings, setHoldings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    getHoldings(1)
+      .then((result) => {
+        const holdingsData = Array.isArray(result.data) ? result.data : [];
+        setHoldings(holdingsData);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="panel panel-holdings">
+        <h2>Your Holdings</h2>
+        <p>Loading holdings...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="panel panel-holdings">
+        <h2>Your Holdings</h2>
+        <p>Error loading holdings: {error}</p>
+      </div>
+    );
+  }
+
+  if (holdings.length === 0) {
+    return (
+      <div className="panel panel-holdings">
+        <h2>Your Holdings</h2>
+        <p>No holdings for the moment</p>
+      </div>
+    );
+  }
+
   return (
     <div className="panel panel-holdings">
       <h2>Your Holdings</h2>
@@ -23,8 +68,8 @@ function HoldingsTable({ showLink = false }) {
         <tbody>
           {holdings.map((holding) => (
             <HoldingRow
-              key={holding.ticker}
-              holding={holding}
+              key={holding.holding_id}
+              holdingId={holding.holding_id}
             />
           ))}
         </tbody>

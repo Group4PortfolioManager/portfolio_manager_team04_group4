@@ -42,3 +42,14 @@ async function sellHolding(portfolioId, ticker, shares, price) {
     body: JSON.stringify({ ticker, shares, price })
   }).then(async (response) => ({ response, data: await response.json() }));
 }
+
+export {
+  fetchJson,
+  getPortfolio,
+  getHoldings,
+  getHolding,
+  getAssets,
+  getStockHistory,
+  buyHolding,
+  sellHolding,
+};

@@ -20,7 +20,7 @@ def get_portfolio(portfolio_id):
 def get_portfolio_holdings(portfolio_id):
     holdings = database_service.get_portfolio_holdings(portfolio_id)
     if not holdings:
-        return {'error': 'No holdings found for this portfolio'}, 404
+        return [], 200
     return holdings, 200
 
 
