@@ -316,6 +316,26 @@ class DataBaseService:
             )
 
             existing_holding = cursor.fetchone()
+            
+            purchase_total = shares_bought * purchase_price
+            
+            cursor.execute(
+                """
+                update portfolio
+                set cash_balance = cash_balance - %s
+                where portfolio_id = %s
+                    and cash_balance >= %s;
+                """,
+                (
+                    purchase_total,
+                    portfolio_id,
+                    purchase_total
+                ),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError(
+                    "Portfolio not found or insufficient cash balance."
+            )
 
             # Update the existing row when the ticker already exists.
             if existing_holding:
@@ -356,7 +376,8 @@ class DataBaseService:
                         existing_holding["holding_id"],
                     ),
                 )
-
+                
+                
                 self.db.commit()
 
                 return {
@@ -420,11 +441,31 @@ class DataBaseService:
             cursor.close()
             
     # Remove Holding Method
-    def remove_shares(self, portfolio_id, ticker, shares_to_remove):
-        shares_to_remove = Decimal(str(shares_to_remove))
+    def remove_shares(
+        self,
+        portfolio_id,
+        ticker,
+        shares_to_remove,
+        sale_price,
+    ):
+        try:
+            shares_to_remove = Decimal(str(shares_to_remove))
+            sale_price = Decimal(str(sale_price))
+
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError(
+                "Shares to remove and sale price must be valid numbers."
+            ) from exc
 
         if shares_to_remove <= 0:
-            raise ValueError("Shares to remove must be greater than zero.")
+            raise ValueError(
+            "Shares to remove must be greater than zero."
+            )
+
+        if sale_price < 0:
+            raise ValueError(
+                "Sale price cannot be negative."
+            )
 
         ticker = ticker.strip().upper()
         cursor = self.db.cursor(dictionary=True)
@@ -459,6 +500,7 @@ class DataBaseService:
                 )
 
             remaining_shares = current_shares - shares_to_remove
+            sale_total = shares_to_remove * sale_price
 
             if remaining_shares == 0:
                 cursor.execute(
@@ -486,6 +528,21 @@ class DataBaseService:
 
                 action = "updated"
 
+            cursor.execute(
+                """
+                UPDATE portfolio
+                SET cash_balance = cash_balance + %s
+                WHERE portfolio_id = %s;
+                """,
+                (
+                    sale_total,
+                    portfolio_id,
+                ),
+            )
+
+            if cursor.rowcount == 0:
+                raise ValueError("Portfolio not found.")
+
             self.db.commit()
 
             return {
@@ -493,35 +550,9 @@ class DataBaseService:
                 "ticker": ticker,
                 "shares_removed": float(shares_to_remove),
                 "remaining_shares": float(remaining_shares),
+                "sale_price": float(sale_price),
+                "sale_total": float(sale_total),
                 "cost_basis": float(holding["cost_basis"]),
-            }
-
-        except Exception:
-            self.db.rollback()
-            raise
-
-        finally:
-            cursor.close()
-
-    # Asset Create Method
-
-    def add_asset(self, asset_type):
-        cursor = self.db.cursor()
-
-        try:
-            cursor.execute(
-                """
-                INSERT INTO asset (asset_type)
-                VALUES (%s);
-                """,
-                (asset_type,),
-            )
-
-            self.db.commit()
-
-            return {
-                "asset_id": cursor.lastrowid,
-                "asset_type": asset_type,
             }
 
         except Exception:
