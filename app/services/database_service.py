@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
 from app.database import get_db_connection
+from app.services.yahoo_service import get_info
 
 
 class DataBaseService:
@@ -716,20 +717,23 @@ class DataBaseService:
 
     def get_portfolio_summary(self, portfolio_id):
         db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(dictionary=True, buffered=True)
         try:
-            cursor.execute("SELECT cash_balance FROM portfolio WHERE portfolio_id = %s;", (portfolio_id,))
+            cursor.execute(
+                "SELECT cash_balance FROM portfolio WHERE portfolio_id = %s;",
+                (portfolio_id,),
+            )
             portfolio = cursor.fetchone()
             if not portfolio:
                 return None
 
             cash_balance = float(portfolio["cash_balance"] or 0)
             cursor.execute(
-                "SELECT h.shares, h.market_value, h.profit_loss, h.cost_basis, a.asset_type "
+                "SELECT h.shares, h.cost_basis, h.ticker, a.asset_type "
                 "FROM holdings h "
                 "JOIN asset a ON h.asset_id = a.asset_id "
                 "WHERE h.portfolio_id = %s;",
-                (portfolio_id,)
+                (portfolio_id,),
             )
             holdings = cursor.fetchall()
 
@@ -745,10 +749,22 @@ class DataBaseService:
 
             for holding in holdings:
                 shares = float(holding["shares"] or 0)
-                market_value = float(holding["market_value"] or 0)
-                profit_loss = float(holding["profit_loss"] or 0)
                 cost_basis = float(holding["cost_basis"] or 0)
                 asset_type = holding["asset_type"] or "Stock"
+                ticker = holding["ticker"]
+
+                current_price = 0.0
+                market_value = 0.0
+                profit_loss = 0.0
+                if ticker:
+                    info = get_info(ticker)
+                    current_price = float(
+                        info.get("currentPrice")
+                        or info.get("regularMarketPrice")
+                        or 0
+                    )
+                    market_value = shares * current_price
+                    profit_loss = market_value - (shares * cost_basis)
 
                 label = (
                     "Stocks" if asset_type == "Stock" else

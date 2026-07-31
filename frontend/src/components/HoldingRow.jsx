@@ -64,29 +64,34 @@ function HoldingRow({ holding, holdingId }) {
     );
   }
 
-  const totalCost = data.cost_basis * data.shares;
-  const profitLossPct = totalCost !== 0 ? (data.profit_loss / totalCost) * 100 : 0;
+  const shares = Number(data.shares) || 0;
+  const costBasis = Number(data.cost_basis) || 0;
+  const currentPrice = Number(data.current_price) || 0;
+  const marketValue = Number(data.market_value) || 0;
+  const profitLoss = Number(data.profit_loss) || 0;
+  const totalCost = costBasis * shares;
+  const profitLossPct = totalCost !== 0 ? (profitLoss / totalCost) * 100 : 0;
 
   return (
     <tr>
       <td className="ticker-symbol">{data.ticker}</td>
       <td>{data.company_name}</td>
-      <td className="mono">{data.shares.toLocaleString("en-US", {
+      <td className="mono">{shares.toLocaleString("en-US", {
         maximumFractionDigits: 2
       })}</td>
-      <td className="mono">${data.current_price.toLocaleString("en-US", {
+      <td className="mono">${currentPrice.toLocaleString("en-US", {
         maximumFractionDigits: 2
       })}</td>
-      <td className="mono">${data.cost_basis.toLocaleString("en-US", {
+      <td className="mono">${costBasis.toLocaleString("en-US", {
         maximumFractionDigits: 2
       })}</td>
-      <td className="mono">${data.market_value.toLocaleString("en-US", {
+      <td className="mono">${marketValue.toLocaleString("en-US", {
         maximumFractionDigits: 2
       })}</td>
 
-      <td className={data.profit_loss >= 0 ? "positive" : "negative"}>
-        {data.profit_loss >= 0 ? "+" : "-"}$
-        {Math.abs(data.profit_loss).toLocaleString("en-US", {
+      <td className={profitLoss >= 0 ? "positive" : "negative"}>
+        {profitLoss >= 0 ? "+" : "-"}$
+        {Math.abs(profitLoss).toLocaleString("en-US", {
           maximumFractionDigits: 2
         })}
         {" "}
