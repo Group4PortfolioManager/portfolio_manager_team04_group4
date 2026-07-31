@@ -419,6 +419,90 @@ class DataBaseService:
 
         finally:
             cursor.close()
+            
+    # Remove Holding Method
+    def remove_shares(self, portfolio_id, ticker, shares_to_remove):
+        shares_to_remove = Decimal(str(shares_to_remove))
+
+        if shares_to_remove <= 0:
+            raise ValueError("Shares to remove must be greater than zero.")
+
+        ticker = ticker.strip().upper()
+        cursor = self.db.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT
+                    holding_id,
+                    shares,
+                    cost_basis
+                FROM holdings
+                WHERE portfolio_id = %s
+                AND ticker = %s
+                FOR UPDATE;
+                """,
+                (portfolio_id, ticker),
+            )
+
+            holding = cursor.fetchone()
+
+            if holding is None:
+                raise ValueError(
+                    f"{ticker} is not currently in this portfolio."
+                )
+
+            current_shares = Decimal(str(holding["shares"]))
+
+            if shares_to_remove > current_shares:
+                raise ValueError(
+                    "Cannot remove more shares than are currently owned."
+                )
+
+            remaining_shares = current_shares - shares_to_remove
+
+            if remaining_shares == 0:
+                cursor.execute(
+                    """
+                    DELETE FROM holdings
+                    WHERE holding_id = %s;
+                    """,
+                    (holding["holding_id"],),
+                )
+
+                action = "deleted"
+
+            else:
+                cursor.execute(
+                    """
+                    UPDATE holdings
+                    SET shares = %s
+                    WHERE holding_id = %s;
+                    """,
+                    (
+                        remaining_shares,
+                        holding["holding_id"],
+                    ),
+                )
+
+                action = "updated"
+
+            self.db.commit()
+
+            return {
+                "action": action,
+                "ticker": ticker,
+                "shares_removed": float(shares_to_remove),
+                "remaining_shares": float(remaining_shares),
+                "cost_basis": float(holding["cost_basis"]),
+            }
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+        finally:
+            cursor.close()
 
     # Asset Create Method
 
