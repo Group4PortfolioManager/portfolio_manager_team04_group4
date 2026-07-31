@@ -682,3 +682,64 @@ class DataBaseService:
 
         finally:
             cursor.close()
+
+    def get_portfolio_summary(self, portfolio_id):
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+        try:
+            cursor.execute("SELECT cash_balance FROM portfolio WHERE portfolio_id = %s;", (portfolio_id,))
+            portfolio = cursor.fetchone()
+            if not portfolio:
+                return None
+
+            cash_balance = float(portfolio["cash_balance"] or 0)
+            cursor.execute(
+                "SELECT h.shares, h.market_value, h.profit_loss, h.cost_basis, a.asset_type "
+                "FROM holdings h "
+                "JOIN asset a ON h.asset_id = a.asset_id "
+                "WHERE h.portfolio_id = %s;",
+                (portfolio_id,)
+            )
+            holdings = cursor.fetchall()
+
+            totals = {
+                "Stocks": 0.0,
+                "Bonds": 0.0,
+                "Crypto": 0.0,
+                "Cash": cash_balance,
+            }
+            total_holdings_value = 0.0
+            total_return = 0.0
+            total_cost_basis = 0.0
+
+            for holding in holdings:
+                shares = float(holding["shares"] or 0)
+                market_value = float(holding["market_value"] or 0)
+                profit_loss = float(holding["profit_loss"] or 0)
+                cost_basis = float(holding["cost_basis"] or 0)
+                asset_type = holding["asset_type"] or "Stock"
+
+                label = (
+                    "Stocks" if asset_type == "Stock" else
+                    "Bonds" if asset_type == "Bond" else
+                    "Crypto" if asset_type == "Crypto" else
+                    "Cash"
+                )
+
+                totals[label] = totals.get(label, 0.0) + market_value
+                total_holdings_value += market_value
+                total_return += profit_loss
+                total_cost_basis += cost_basis * shares
+
+            return {
+                "cash_balance": cash_balance,
+                "total_value": total_holdings_value + cash_balance,
+                "total_return": total_return,
+                "cost_basis_total": total_cost_basis,
+                "stocks_value": totals["Stocks"],
+                "bonds_value": totals["Bonds"],
+                "crypto_value": totals["Crypto"],
+            }
+        finally:
+            cursor.close()
+            db.close()

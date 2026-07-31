@@ -13,7 +13,12 @@ def get_portfolio(portfolio_id):
     portfolio = database_service.get_portfolio_by_id(portfolio_id)
     if portfolio is None:
         return {'error': 'Portfolio not found'}, 404
-    return portfolio, 200
+
+    summary = database_service.get_portfolio_summary(portfolio_id)
+    if summary is None:
+        return {'error': 'Portfolio summary not found'}, 404
+
+    return {**portfolio, **summary}, 200
 
 
 @api_bp.route('/portfolios/<int:portfolio_id>/holdings', methods=['GET'])
@@ -112,4 +117,6 @@ def sell_holding(portfolio_id):
         return {'error': 'ticker, shares, and price are required'}, 400
 
     trade = database_service.sell_holding(portfolio_id, ticker, shares, price)
+    if isinstance(trade, dict) and trade.get('error'):
+        return trade, 400
     return trade, 200
