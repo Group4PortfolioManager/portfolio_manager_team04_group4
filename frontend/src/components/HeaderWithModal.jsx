@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "./Header";
 import AddAssetModal from "./AddAssetModal";
 import RemoveAssetModal from "./RemoveAssetModal";
-import { buyHolding } from "../services/api";
+import { buyHolding, getPortfolio } from "../services/api";
 
 function HeaderWithModal() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [summary, setSummary] = useState(null);
 
   const openAddModal = () => setIsAddModalOpen(true);
   const openRemoveModal = () => setIsRemoveModalOpen(true);
@@ -20,6 +21,21 @@ function HeaderWithModal() {
     }
   };
 
+  const loadSummary = async () => {
+    try {
+      const result = await getPortfolio(1);
+      if (result.response.ok) {
+        setSummary(result.data);
+      }
+    } catch (err) {
+      // ignore summary refresh failures for now
+    }
+  };
+
+  useEffect(() => {
+    loadSummary();
+  }, []);
+
   const handleAddSubmit = async ({ ticker, shares, price }) => {
     setIsSubmitting(true);
     setError(null);
@@ -30,6 +46,7 @@ function HeaderWithModal() {
         throw new Error(result.data?.error || "Unable to add asset.");
       }
       setIsAddModalOpen(false);
+      await loadSummary();
     } catch (err) {
       setError(err.message || "Submit failed.");
     } finally {
@@ -46,6 +63,7 @@ function HeaderWithModal() {
         throw new Error(result.data?.error || "Unable to remove asset.");
       }
       setIsRemoveModalOpen(false);
+      await loadSummary();
     } catch (err) {
       setError(err.message || "Submit failed.");
     } finally {
@@ -55,7 +73,7 @@ function HeaderWithModal() {
 
   return (
     <>
-      <Header onAddAsset={openAddModal} onRemoveAsset={openRemoveModal} />
+      <Header summary={summary} onAddAsset={openAddModal} onRemoveAsset={openRemoveModal} />
       <AddAssetModal
         isOpen={isAddModalOpen}
         onClose={closeModals}

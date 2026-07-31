@@ -1,12 +1,10 @@
-import { portfolioSummary, performanceHistory } from "../data/mockData";
-
-function Header({ onAddAsset, onRemoveAsset }) {
-  const previousValue = performanceHistory[performanceHistory.length - 2].value;
-  const daysGain = performanceHistory[performanceHistory.length - 1].value - previousValue;
-  const daysGainPercent = (daysGain / previousValue) * 100;
-
-  const costBasis = portfolioSummary.total_value - portfolioSummary.total_return;
-  const totalReturnPercent = (portfolioSummary.total_return / costBasis) * 100;
+function Header({ onAddAsset, onRemoveAsset, summary }) {
+  const totalValue = summary?.total_value ?? 0;
+  const totalReturn = summary?.total_return ?? 0;
+  const costBasis = summary?.cost_basis_total ?? 0;
+  const totalReturnPercent = costBasis ? (totalReturn / costBasis) * 100 : 0;
+  const daysGain = summary?.day_gain ?? 0;
+  const daysGainPercent = summary?.day_gain_percent ?? 0;
 
   return (
     <header className="topbar">
@@ -18,13 +16,13 @@ function Header({ onAddAsset, onRemoveAsset }) {
       <div className="topbar-stats">
         <span className="stat-pill">
           Total Portfolio Value
-          <strong>${portfolioSummary.total_value.toLocaleString()}</strong>
+          <strong>${totalValue.toLocaleString()}</strong>
         </span>
 
         <span className="stat-pill">
           Total Return
           <strong className="positive">
-            +${portfolioSummary.total_return.toLocaleString()}
+            +${totalReturn.toLocaleString()}
             <span className="stat-pct positive"> (+{totalReturnPercent.toFixed(1)}%)</span>
           </strong>
         </span>
