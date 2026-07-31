@@ -11,7 +11,7 @@ async function getPortfolio(portfolioId) {
   return fetchJson(`${API_BASE_URL}/portfolios/${portfolioId}`);
 }
 
-async function getPortfolioHoldings(portfolioId) {
+async function getHoldings(portfolioId) {
   return fetchJson(`${API_BASE_URL}/portfolios/${portfolioId}/holdings`);
 }
 
@@ -61,7 +61,7 @@ async function sellHolding(portfolioId, ticker, shares) {
 export {
   fetchJson,
   getPortfolio,
-  getPortfolioHoldings,
+  getHoldings,
   getHolding,
   getAssets,
   getStockHistory,
