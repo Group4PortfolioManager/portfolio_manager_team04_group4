@@ -101,29 +101,48 @@ def get_stock_history(ticker):
 
 @api_bp.route('/portfolios/<int:portfolio_id>/buy', methods=['POST'])
 def buy_holding(portfolio_id):
-    data = request.get_json(silent=True) or {}
-    asset_id = data.get('asset_id')
-    ticker = data.get('ticker')
-    company_name = data.get('company_name')
-    shares = data.get('shares')
-    price = data.get('price')
-    purchase_date = data.get('purchase_date')
+    try:
+        data = request.get_json(silent=True) or {}
+        asset_id = data.get('asset_id')
+        ticker = data.get('ticker')
+        company_name = data.get('company_name')
+        shares = data.get('shares')
+        price = data.get('price')
+        purchase_date = data.get('purchase_date')
 
-    if not ticker or shares is None or price is None or purchase_date is None:
-        return {'error': 'ticker, shares, price, and purchase date are required'}, 400
+        if not ticker or shares is None or price is None or purchase_date is None:
+            return {'error': 'ticker, shares, price, and purchase_date are required'}, 400
 
-    holding = {
-            'portfolio_id':portfolio_id,
-            'asset_id':asset_id,
-            'ticker':ticker,
-            'company_name':company_name,
-            'shares':shares,
-            'cost_basis':price,
-            'purchase_date':purchase_date
+        # Frontend may omit asset_id for stock buys; resolve a Stock asset id.
+        if asset_id is None:
+            assets = database_service.get_all_assets() or []
+            stock_asset = next(
+                (
+                    asset for asset in assets
+                    if (asset.get('asset_type') or '').lower() == 'stock'
+                ),
+                None,
+            )
+            if stock_asset is None:
+                return {'error': 'No Stock asset type configured in database.'}, 500
+            asset_id = stock_asset.get('asset_id')
+
+        holding = {
+            'portfolio_id': portfolio_id,
+            'asset_id': asset_id,
+            'ticker': ticker,
+            'company_name': company_name or ticker,
+            'shares': shares,
+            'purchase_price': price,
+            'purchase_date': purchase_date,
         }
-    
-    trade = database_service.add_holding(holding)
-    return trade, 200
+
+        trade = database_service.add_holding(holding)
+        return trade, 200
+    except ValueError as exc:
+        return {'error': str(exc)}, 400
+    except Exception as exc:
+        return {'error': f'Failed to buy holding due to a server error: {exc}'}, 500
 
 
 @api_bp.route('/portfolios/<int:portfolio_id>/sell', methods=['POST'])
@@ -131,12 +150,17 @@ def sell_holding(portfolio_id):
     data = request.get_json(silent=True) or {}
     ticker = data.get('ticker')
     shares = data.get('shares')
+    price = data.get('price')
     
 
-    if not ticker or shares is None:
-        return {'error': 'ticker and shares are required'}, 400
+    if not ticker or shares is None or price is None:
+        return {'error': 'ticker, shares, and price are required'}, 400
 
-    trade = database_service.remove_shares(portfolio_id, ticker, shares)
-    if isinstance(trade, dict) and trade.get('error'):
-        return trade, 400
+    try:
+        trade = database_service.remove_shares(portfolio_id, ticker, shares, price)
+    except ValueError as exc:
+        return {'error': str(exc)}, 400
+    except Exception:
+        return {'error': 'Failed to sell holding due to a server error.'}, 500
+
     return trade, 200

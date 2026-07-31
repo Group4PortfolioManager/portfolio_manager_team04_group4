@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { buyHolding } from "../services/api";
 
 function AddAssetModal({ isOpen, onClose, onSubmit }) {
   const [ticker, setTicker] = useState("");
@@ -18,8 +17,11 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
       return;
     }
 
-    const result = await buyHolding(1, ticker.toUpperCase(), sharesValue, priceValue);
-    onSubmit(result);
+    await onSubmit({
+      ticker: ticker.toUpperCase(),
+      shares: sharesValue,
+      price: priceValue,
+    });
   };
 
   return (
