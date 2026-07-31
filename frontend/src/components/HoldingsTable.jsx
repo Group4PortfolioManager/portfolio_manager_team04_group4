@@ -68,8 +68,8 @@ function HoldingsTable({ showLink = false }) {
         <tbody>
           {holdings.map((holding) => (
             <HoldingRow
-              key={holding.holding_id}
-              holdingId={holding.holding_id}
+              key={holding.ticker}
+              holding={holding}
             />
           ))}
         </tbody>

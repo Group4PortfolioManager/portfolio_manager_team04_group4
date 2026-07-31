@@ -112,4 +112,6 @@ def sell_holding(portfolio_id):
         return {'error': 'ticker, shares, and price are required'}, 400
 
     trade = database_service.sell_holding(portfolio_id, ticker, shares, price)
+    if isinstance(trade, dict) and trade.get('error'):
+        return trade, 400
     return trade, 200
