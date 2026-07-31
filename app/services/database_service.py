@@ -1,25 +1,603 @@
+from decimal import Decimal, InvalidOperation
+
 from app.database import get_db_connection
 
+
 class DataBaseService:
+    def __init__(self):
+        self._db = None
+
+    @property
+    def db(self):
+        # Create a connection if one does not exist or was disconnected.
+        if self._db is None or not self._db.is_connected():
+            self._db = get_db_connection()
+
+        return self._db
+
+    # Portfolio Read Methods
+
     def get_all_portfolios(self):
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
+        cursor = self.db.cursor(dictionary=True)
+
         try:
-            cursor.execute("SELECT * FROM portfolio;")
+            cursor.execute(
+                "SELECT * FROM portfolio;"
+            )
+
             return cursor.fetchall()
+
         finally:
             cursor.close()
-            db.close()
 
     def get_portfolio_by_id(self, portfolio_id):
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
+        cursor = self.db.cursor(dictionary=True)
+
         try:
-            cursor.execute("SELECT * FROM portfolio WHERE portfolio_id = %s;", (portfolio_id,))
+            cursor.execute(
+                """
+                SELECT *
+                FROM portfolio
+                WHERE portfolio_id = %s;
+                """,
+                (portfolio_id,),
+            )
+
+            # One ID should return one object, not a list.
             return cursor.fetchone()
+
         finally:
             cursor.close()
-            db.close()
+
+    # Holding Read Methods
+
+    def get_portfolio_holdings(self, portfolio_id):
+        cursor = self.db.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT
+                    h.holding_id,
+                    h.portfolio_id,
+                    h.asset_id,
+                    a.asset_type,
+                    h.ticker,
+                    h.company_name,
+                    h.shares,
+                    h.cost_basis,
+                    h.purchase_date
+                FROM holdings AS h
+                INNER JOIN asset AS a
+                    ON h.asset_id = a.asset_id
+                WHERE h.portfolio_id = %s
+                ORDER BY h.ticker;
+                """,
+                (portfolio_id,),
+            )
+
+            return cursor.fetchall()
+
+        finally:
+            cursor.close()
+
+    def get_holding_by_id(self, holding_id):
+        cursor = self.db.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT
+                    h.holding_id,
+                    h.portfolio_id,
+                    h.asset_id,
+                    a.asset_type,
+                    h.ticker,
+                    h.company_name,
+                    h.shares,
+                    h.cost_basis,
+                    h.purchase_date
+                FROM holdings AS h
+                INNER JOIN asset AS a
+                    ON h.asset_id = a.asset_id
+                WHERE h.holding_id = %s;
+                """,
+                (holding_id,),
+            )
+
+            # One ID should return one object, not a list.
+            return cursor.fetchone()
+
+        finally:
+            cursor.close()
+
+    def get_holding_by_ticker(self, portfolio_id, ticker):
+        """
+        Look up a ticker inside a specific portfolio.
+
+        portfolio_id is needed because the unique database
+        constraint applies to portfolio_id and ticker together.
+        """
+        cursor = self.db.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT
+                    h.holding_id,
+                    h.portfolio_id,
+                    h.asset_id,
+                    a.asset_type,
+                    h.ticker,
+                    h.company_name,
+                    h.shares,
+                    h.cost_basis,
+                    h.purchase_date
+                FROM holdings AS h
+                INNER JOIN asset AS a
+                    ON h.asset_id = a.asset_id
+                WHERE h.portfolio_id = %s
+                  AND h.ticker = %s;
+                """,
+                (
+                    portfolio_id,
+                    ticker.strip().upper(),
+                ),
+            )
+
+            return cursor.fetchone()
+
+        finally:
+            cursor.close()
+
+    # Asset Read Methods
+
+    def get_all_assets(self):
+        cursor = self.db.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                "SELECT * FROM asset;"
+            )
+
+            return cursor.fetchall()
+
+        finally:
+            cursor.close()
+
+    def get_asset_by_id(self, asset_id):
+        cursor = self.db.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT *
+                FROM asset
+                WHERE asset_id = %s;
+                """,
+                (asset_id,),
+            )
+
+            # One ID should return one object, not a list.
+            return cursor.fetchone()
+
+        finally:
+            cursor.close()
+
+    # Portfolio Create Method
+
+    def add_portfolio(self, portfolio):
+        cursor = self.db.cursor()
+
+        try:
+            cursor.execute(
+                """
+                INSERT INTO portfolio (
+                    portfolio_name,
+                    cash_balance,
+                    created_at
+                )
+                VALUES (%s, %s, NOW());
+                """,
+                (
+                    portfolio["portfolio_name"],
+                    portfolio["cash_balance"],
+                ),
+            )
+
+            self.db.commit()
+
+            return {
+                "portfolio_id": cursor.lastrowid,
+                "portfolio_name": portfolio["portfolio_name"],
+                "cash_balance": portfolio["cash_balance"],
+            }
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+        finally:
+            cursor.close()
+
+    # Holoding Create / Buy Method
+
+    def add_holding(self, holding):
+        """
+        Expected holding data:
+
+        {
+            "portfolio_id": 1,
+            "asset_id": 1,
+            "ticker": "AAPL",
+            "company_name": "Apple Inc.",
+            "shares": 10,
+            "purchase_price": 210.00,
+            "purchase_date": "2026-07-31"
+        }
+
+        purchase_price is the price paid for this purchase.
+
+        For a new ticker, purchase_price becomes cost_basis.
+
+        If the ticker already exists in the portfolio, the shares
+        and average cost basis are updated.
+        """
+
+        required_fields = [
+            "portfolio_id",
+            "asset_id",
+            "ticker",
+            "company_name",
+            "shares",
+            "purchase_price",
+            "purchase_date",
+        ]
+
+        missing_fields = [
+            field
+            for field in required_fields
+            if field not in holding or holding[field] in (None, "")
+        ]
+
+        if missing_fields:
+            raise ValueError(
+                "Missing required fields: "
+                + ", ".join(missing_fields)
+            )
+
+        try:
+            shares_bought = Decimal(str(holding["shares"]))
+            purchase_price = Decimal(
+                str(holding["purchase_price"])
+            )
+
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError(
+                "shares and purchase_price must be valid numbers."
+            ) from exc
+
+        if shares_bought <= 0:
+            raise ValueError(
+                "shares must be greater than zero."
+            )
+
+        if purchase_price < 0:
+            raise ValueError(
+                "purchase_price cannot be negative."
+            )
+
+        portfolio_id = holding["portfolio_id"]
+        asset_id = holding["asset_id"]
+        ticker = holding["ticker"].strip().upper()
+        company_name = holding["company_name"].strip()
+        purchase_date = holding["purchase_date"]
+
+        cursor = self.db.cursor(dictionary=True)
+
+        try:
+            # Check whether the portfolio already owns this ticker.
+            cursor.execute(
+                """
+                SELECT
+                    holding_id,
+                    shares,
+                    cost_basis,
+                    purchase_date
+                FROM holdings
+                WHERE portfolio_id = %s
+                  AND ticker = %s
+                FOR UPDATE;
+                """,
+                (
+                    portfolio_id,
+                    ticker,
+                ),
+            )
+
+            existing_holding = cursor.fetchone()
+
+            # Update the existing row when the ticker already exists.
+            if existing_holding:
+                old_shares = Decimal(
+                    str(existing_holding["shares"])
+                )
+
+                old_cost_basis = Decimal(
+                    str(existing_holding["cost_basis"])
+                )
+
+                new_total_shares = (
+                    old_shares + shares_bought
+                )
+
+                # Weighted-average cost basis.
+                # No Python round() or quantize() is used.
+                new_average_cost = (
+                    (old_shares * old_cost_basis)
+                    + (shares_bought * purchase_price)
+                ) / new_total_shares
+
+                cursor.execute(
+                    """
+                    UPDATE holdings
+                    SET
+                        asset_id = %s,
+                        company_name = %s,
+                        shares = %s,
+                        cost_basis = %s
+                    WHERE holding_id = %s;
+                    """,
+                    (
+                        asset_id,
+                        company_name,
+                        new_total_shares,
+                        new_average_cost,
+                        existing_holding["holding_id"],
+                    ),
+                )
+
+                self.db.commit()
+
+                return {
+                    "action": "updated",
+                    "holding_id": existing_holding["holding_id"],
+                    "portfolio_id": portfolio_id,
+                    "asset_id": asset_id,
+                    "ticker": ticker,
+                    "company_name": company_name,
+                    "shares": float(new_total_shares),
+                    "cost_basis": float(new_average_cost),
+                    "purchase_date": str(
+                        existing_holding["purchase_date"]
+                    ),
+                }
+
+            # Insert a new row when the ticker does not exist.
+            cursor.execute(
+                """
+                INSERT INTO holdings (
+                    portfolio_id,
+                    asset_id,
+                    ticker,
+                    company_name,
+                    shares,
+                    cost_basis,
+                    purchase_date
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s);
+                """,
+                (
+                    portfolio_id,
+                    asset_id,
+                    ticker,
+                    company_name,
+                    shares_bought,
+                    purchase_price,
+                    purchase_date,
+                ),
+            )
+
+            self.db.commit()
+
+            return {
+                "action": "created",
+                "holding_id": cursor.lastrowid,
+                "portfolio_id": portfolio_id,
+                "asset_id": asset_id,
+                "ticker": ticker,
+                "company_name": company_name,
+                "shares": float(shares_bought),
+                "cost_basis": float(purchase_price),
+                "purchase_date": str(purchase_date),
+            }
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+        finally:
+            cursor.close()
+
+    # Asset Create Method
+
+    def add_asset(self, asset_type):
+        cursor = self.db.cursor()
+
+        try:
+            cursor.execute(
+                """
+                INSERT INTO asset (asset_type)
+                VALUES (%s);
+                """,
+                (asset_type,),
+            )
+
+            self.db.commit()
+
+            return {
+                "asset_id": cursor.lastrowid,
+                "asset_type": asset_type,
+            }
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+        finally:
+            cursor.close()
+
+    # Portfolio Update Method
+
+    def update_portfolio(self, portfolio):
+        cursor = self.db.cursor()
+
+        try:
+            cursor.execute(
+                """
+                UPDATE portfolio
+                SET
+                    portfolio_name = %s,
+                    cash_balance = %s
+                WHERE portfolio_id = %s;
+                """,
+                (
+                    portfolio["portfolio_name"],
+                    portfolio["cash_balance"],
+                    portfolio["portfolio_id"],
+                ),
+            )
+
+            # created_at is intentionally not changed.
+            self.db.commit()
+
+            return cursor.rowcount > 0
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+        finally:
+            cursor.close()
+
+    # Holding Update Method
+
+    def update_holding(self, holding):
+        """
+        Directly edit an existing holding.
+
+        Use add_holding() when buying more shares so that the
+        average cost basis is calculated automatically.
+        """
+        cursor = self.db.cursor()
+
+        try:
+            cursor.execute(
+                """
+                UPDATE holdings
+                SET
+                    portfolio_id = %s,
+                    asset_id = %s,
+                    ticker = %s,
+                    company_name = %s,
+                    shares = %s,
+                    cost_basis = %s,
+                    purchase_date = %s
+                WHERE holding_id = %s;
+                """,
+                (
+                    holding["portfolio_id"],
+                    holding["asset_id"],
+                    holding["ticker"].strip().upper(),
+                    holding["company_name"],
+                    holding["shares"],
+                    holding["cost_basis"],
+                    holding["purchase_date"],
+                    holding["holding_id"],
+                ),
+            )
+
+            self.db.commit()
+
+            return cursor.rowcount > 0
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+        finally:
+            cursor.close()
+
+    # Delete Methods
+
+    def delete_portfolio_by_id(self, portfolio_id):
+        cursor = self.db.cursor()
+
+        try:
+            cursor.execute(
+                """
+                DELETE FROM portfolio
+                WHERE portfolio_id = %s;
+                """,
+                (portfolio_id,),
+            )
+
+            self.db.commit()
+
+            return cursor.rowcount > 0
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+        finally:
+            cursor.close()
+
+    def delete_holding_by_id(self, holding_id):
+        cursor = self.db.cursor()
+
+        try:
+            cursor.execute(
+                """
+                DELETE FROM holdings
+                WHERE holding_id = %s;
+                """,
+                (holding_id,),
+            )
+
+            self.db.commit()
+
+            return cursor.rowcount > 0
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+        finally:
+            cursor.close()
+
+    def delete_asset_by_id(self, asset_id):
+        cursor = self.db.cursor()
+
+        try:
+            cursor.execute(
+                """
+                DELETE FROM asset
+                WHERE asset_id = %s;
+                """,
+                (asset_id,),
+            )
+
+            self.db.commit()
+
+            return cursor.rowcount > 0
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+        finally:
+            cursor.close()
 
     def get_portfolio_summary(self, portfolio_id):
         db = get_db_connection()
@@ -77,211 +655,6 @@ class DataBaseService:
                 "stocks_value": totals["Stocks"],
                 "bonds_value": totals["Bonds"],
                 "crypto_value": totals["Crypto"],
-            }
-        finally:
-            cursor.close()
-            db.close()
-
-    def get_portfolio_holdings(self, portfolio_id):
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        try:
-            cursor.execute("SELECT * FROM holdings WHERE portfolio_id = %s;", (portfolio_id,))
-            holdings = cursor.fetchall()
-            print(f"Holdings for portfolio {portfolio_id}: {holdings}")
-            return self._aggregate_holdings_by_ticker(holdings)
-        finally:
-            cursor.close()
-            db.close()
-
-    #sym:_aggregate_holdings_by_ticker
-    def _aggregate_holdings_by_ticker(self, holdings):
-        grouped = {}
-        for holding in holdings:
-            ticker = holding["ticker"]
-            shares = float(holding["shares"] or 0)
-            current_price = float(holding["current_price"] or 0)
-            cost_basis = float(holding["cost_basis"] or 0)
-            market_value = float(holding["market_value"] or 0)
-            profit_loss = float(holding["profit_loss"] or 0)
-
-            if ticker not in grouped:
-                grouped[ticker] = {
-                    "holding_id": holding.get("holding_id"),
-                    "portfolio_id": holding["portfolio_id"],
-                    "asset_id": holding["asset_id"],
-                    "ticker": ticker,
-                    "company_name": holding["company_name"],
-                    "shares": shares,
-                    "market_value": market_value,
-                    "profit_loss": profit_loss,
-                    "_weighted_current_price": current_price * shares,
-                    "_weighted_cost_basis": cost_basis * shares,
-                }
-            else:
-                grouped[ticker]["shares"] += shares
-                grouped[ticker]["market_value"] += market_value
-                grouped[ticker]["profit_loss"] += profit_loss
-                grouped[ticker]["_weighted_current_price"] += current_price * shares
-                grouped[ticker]["_weighted_cost_basis"] += cost_basis * shares
-
-        result = []
-        for aggregated in grouped.values():
-            total_shares = aggregated["shares"]
-            aggregated["current_price"] = (
-                aggregated["_weighted_current_price"] / total_shares
-            ) if total_shares else 0.0
-            aggregated["cost_basis"] = (
-                aggregated["_weighted_cost_basis"] / total_shares
-            ) if total_shares else 0.0
-            aggregated.pop("_weighted_current_price", None)
-            aggregated.pop("_weighted_cost_basis", None)
-            result.append(aggregated)
-
-        return result
-
-    def get_holding_by_id(self, holding_id):
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        try:
-            cursor.execute("SELECT * FROM holdings WHERE holding_id = %s;", (holding_id,))
-            return cursor.fetchone()
-        finally:
-            cursor.close()
-            db.close()
-
-    def get_all_assets(self):
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        try:
-            cursor.execute("SELECT * FROM asset;")
-            return cursor.fetchall()
-        finally:
-            cursor.close()
-            db.close()
-
-    def get_asset_by_id(self, asset_id):
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        try:
-            cursor.execute("SELECT * FROM asset WHERE asset_id = %s;", (asset_id,))
-            return cursor.fetchone()
-        finally:
-            cursor.close()
-            db.close()
-
-    def buy_holding(self, portfolio_id, ticker, shares, price):
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        try:
-            cursor.execute("SELECT asset_id FROM asset WHERE asset_type = %s LIMIT 1;", ("Stock",))
-            asset_row = cursor.fetchone()
-            if asset_row:
-                asset_id = asset_row["asset_id"]
-            else:
-                cursor.execute("INSERT INTO asset (asset_type) VALUES (%s);", ("Stock",))
-                asset_id = cursor.lastrowid
-
-            cursor.execute(
-                "SELECT * FROM holdings WHERE portfolio_id = %s AND ticker = %s LIMIT 1;",
-                (portfolio_id, ticker)
-            )
-            existing = cursor.fetchone()
-
-            if existing:
-                total_shares = float(existing["shares"] or 0) + float(shares)
-                total_cost_basis = (float(existing["cost_basis"] or 0) * float(existing["shares"] or 0)) + (float(price) * float(shares))
-                new_cost_basis = total_cost_basis / total_shares if total_shares else 0
-                new_market_value = total_shares * float(price)
-                new_profit_loss = new_market_value - (new_cost_basis * total_shares)
-
-                cursor.execute(
-                    "UPDATE holdings SET shares = %s, current_price = %s, cost_basis = %s, market_value = %s, profit_loss = %s WHERE holding_id = %s;",
-                    (total_shares, price, new_cost_basis, new_market_value, new_profit_loss, existing["holding_id"])
-                )
-                db.commit()
-                return {
-                    "holding_id": existing["holding_id"],
-                    "portfolio_id": portfolio_id,
-                    "asset_id": asset_id,
-                    "ticker": ticker,
-                    "company_name": existing["company_name"],
-                    "shares": total_shares,
-                    "current_price": float(price),
-                    "cost_basis": new_cost_basis,
-                    "market_value": new_market_value,
-                    "profit_loss": new_profit_loss,
-                }
-
-            market_value = float(shares) * float(price)
-            cursor.execute(
-                "INSERT INTO holdings (portfolio_id, asset_id, ticker, company_name, shares, current_price, market_value, cost_basis, profit_loss) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);",
-                (portfolio_id, asset_id, ticker, ticker, shares, price, market_value, price, 0.0)
-            )
-            holding_id = cursor.lastrowid
-            db.commit()
-            return {
-                "holding_id": holding_id,
-                "portfolio_id": portfolio_id,
-                "asset_id": asset_id,
-                "ticker": ticker,
-                "company_name": ticker,
-                "shares": float(shares),
-                "current_price": float(price),
-                "cost_basis": float(price),
-                "market_value": market_value,
-                "profit_loss": 0.0,
-            }
-        finally:
-            cursor.close()
-            db.close()
-
-    def sell_holding(self, portfolio_id, ticker, shares, price):
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        try:
-            cursor.execute(
-                "SELECT * FROM holdings WHERE portfolio_id = %s AND ticker = %s LIMIT 1;",
-                (portfolio_id, ticker)
-            )
-            existing = cursor.fetchone()
-            if not existing:
-                return {"error": "Holding not found"}
-
-            current_shares = float(existing["shares"] or 0)
-            sell_shares = float(shares)
-            if sell_shares <= 0 or sell_shares > current_shares:
-                return {"error": "Invalid sell quantity"}
-
-            remaining_shares = current_shares - sell_shares
-            if remaining_shares == 0:
-                cursor.execute(
-                    "DELETE FROM holdings WHERE holding_id = %s;",
-                    (existing["holding_id"],)
-                )
-                db.commit()
-                return {"message": "Holding sold completely", "holding_id": existing["holding_id"]}
-
-            remaining_market = remaining_shares * float(price)
-            remaining_cost_basis = float(existing["cost_basis"] or 0)
-            remaining_profit_loss = remaining_market - (remaining_cost_basis * remaining_shares)
-
-            cursor.execute(
-                "UPDATE holdings SET shares = %s, current_price = %s, market_value = %s, profit_loss = %s WHERE holding_id = %s;",
-                (remaining_shares, price, remaining_market, remaining_profit_loss, existing["holding_id"])
-            )
-            db.commit()
-            return {
-                "holding_id": existing["holding_id"],
-                "portfolio_id": portfolio_id,
-                "asset_id": existing["asset_id"],
-                "ticker": ticker,
-                "company_name": existing["company_name"],
-                "shares": remaining_shares,
-                "current_price": float(price),
-                "cost_basis": remaining_cost_basis,
-                "market_value": remaining_market,
-                "profit_loss": remaining_profit_loss,
             }
         finally:
             cursor.close()

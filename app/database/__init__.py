@@ -40,6 +40,7 @@ def get_initial_data(db, portfolio): # Load all the data to be displayed in the 
         db.commit()
         p_cursor.execute("SELECT * FROM portfolio;")
         portfolio = p_cursor.fetchall()[0]
+        p_cursor.close()
         print(f"Portfolio Created: {portfolio}")
     
     # Load all assets

@@ -76,7 +76,7 @@ function HoldingsTable({ showLink = false }) {
       </table>
 
       {showLink && (
-        <Link to="/holdings" className="text-link">Add or Remove Holdings</Link>
+        <Link to="/holdings" className="text-link">View Holdings</Link>
       )}
     </div>
   );
