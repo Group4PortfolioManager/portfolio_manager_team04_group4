@@ -7,6 +7,13 @@ from app.services.yahoo_service import get_historical_data, get_info
 api_bp = Blueprint('api_bp', __name__)
 database_service = DataBaseService()
 
+@api_bp.route('/portfolios', methods=['GET'])
+def get_portfolios():
+    portfolios = database_service.get_all_portfolios()
+    if portfolios is None:
+        return {'error': 'Portfolios not found'}, 404
+    return portfolios, 200
+
 
 @api_bp.route('/portfolios/<int:portfolio_id>', methods=['GET'])
 def get_portfolio(portfolio_id):
@@ -95,14 +102,27 @@ def get_stock_history(ticker):
 @api_bp.route('/portfolios/<int:portfolio_id>/buy', methods=['POST'])
 def buy_holding(portfolio_id):
     data = request.get_json(silent=True) or {}
+    asset_id = data.get('asset_id')
     ticker = data.get('ticker')
+    company_name = data.get('company_name')
     shares = data.get('shares')
     price = data.get('price')
+    purchase_date = data.get('purchase_date')
 
-    if not ticker or shares is None or price is None:
-        return {'error': 'ticker, shares, and price are required'}, 400
+    if not ticker or shares is None or price is None or purchase_date is None:
+        return {'error': 'ticker, shares, price, and purchase date are required'}, 400
 
-    trade = database_service.buy_holding(portfolio_id, ticker, shares, price)
+    holding = {
+            'portfolio_id':portfolio_id,
+            'asset_id':asset_id,
+            'ticker':ticker,
+            'company_name':company_name,
+            'shares':shares,
+            'cost_basis':price,
+            'purchase_date':purchase_date
+        }
+    
+    trade = database_service.add_holding(holding)
     return trade, 200
 
 
@@ -111,12 +131,12 @@ def sell_holding(portfolio_id):
     data = request.get_json(silent=True) or {}
     ticker = data.get('ticker')
     shares = data.get('shares')
-    price = data.get('price')
+    
 
-    if not ticker or shares is None or price is None:
-        return {'error': 'ticker, shares, and price are required'}, 400
+    if not ticker or shares is None:
+        return {'error': 'ticker and shares are required'}, 400
 
-    trade = database_service.sell_holding(portfolio_id, ticker, shares, price)
+    trade = database_service.remove_shares(portfolio_id, ticker, shares)
     if isinstance(trade, dict) and trade.get('error'):
         return trade, 400
     return trade, 200

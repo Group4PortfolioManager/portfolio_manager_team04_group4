@@ -23,6 +23,10 @@ async function getAssets() {
   return fetchJson(`${API_BASE_URL}/assets`);
 }
 
+async function getAsset(assetId) {
+  return fetchJson(`${API_BASE_URL}/assets/${assetId}`)
+}
+
 async function getStockHistory(ticker, startDate, endDate, interval = '1d') {
   return fetchJson(`${API_BASE_URL}/stocks/${ticker}/history?start_date=${startDate}&end_date=${endDate}&interval=${interval}`);
 }
@@ -31,19 +35,26 @@ async function getStock(ticker) {
   return fetchJson(`${API_BASE_URL}/stocks/${ticker}`);
 }
 
-async function buyHolding(portfolioId, ticker, shares, price) {
+async function buyHolding(portfolioId, assetId, ticker, companyName, shares, price, purchaseDate) {
   return fetch(`${API_BASE_URL}/portfolios/${portfolioId}/buy`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ticker, shares, price })
+    body: JSON.stringify({
+      asset_id: assetId,
+      ticker,
+      company_name: companyName,
+      shares,
+      price,
+      purchase_date: purchaseDate
+    })
   }).then(async (response) => ({ response, data: await response.json() }));
 }
 
-async function sellHolding(portfolioId, ticker, shares, price) {
+async function sellHolding(portfolioId, ticker, shares) {
   return fetch(`${API_BASE_URL}/portfolios/${portfolioId}/sell`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ticker, shares, price })
+    body: JSON.stringify({ ticker, shares })
   }).then(async (response) => ({ response, data: await response.json() }));
 }
 
