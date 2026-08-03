@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getAssets } from "../services/api";
+import { useDataRefresh } from "../services/refreshStore";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
 
 const COLORS = {
@@ -13,6 +14,7 @@ function AssetAllocation() {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const refreshKey = useDataRefresh();
 
   useEffect(() => {
     getAssets()
@@ -25,7 +27,7 @@ function AssetAllocation() {
         setError(err.message);
         setLoading(false);
       });
-  }, []);
+  }, [refreshKey]);
 
   if (loading) {
     return (

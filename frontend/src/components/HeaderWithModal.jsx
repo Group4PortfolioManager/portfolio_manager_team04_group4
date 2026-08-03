@@ -3,6 +3,7 @@ import Header from "./Header";
 import AddAssetModal from "./AddAssetModal";
 import RemoveAssetModal from "./RemoveAssetModal";
 import { buyHolding, getPortfolio } from "../services/api";
+import { refreshData, useDataRefresh } from "../services/refreshStore";
 
 function HeaderWithModal() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -10,6 +11,8 @@ function HeaderWithModal() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
+
+  const refreshKey = useDataRefresh();
 
   const openAddModal = () => setIsAddModalOpen(true);
   const openRemoveModal = () => setIsRemoveModalOpen(true);
@@ -34,7 +37,7 @@ function HeaderWithModal() {
 
   useEffect(() => {
     loadSummary();
-  }, []);
+  }, [refreshKey]);
 
   const handleAddSubmit = async ({ ticker, shares, price }) => {
     setIsSubmitting(true);
@@ -46,7 +49,7 @@ function HeaderWithModal() {
         throw new Error(result.data?.error || "Unable to add asset.");
       }
       setIsAddModalOpen(false);
-      await loadSummary();
+      refreshData();
     } catch (err) {
       setError(err.message || "Submit failed.");
     } finally {
@@ -63,7 +66,7 @@ function HeaderWithModal() {
         throw new Error(result.data?.error || "Unable to remove asset.");
       }
       setIsRemoveModalOpen(false);
-      await loadSummary();
+      refreshData();
     } catch (err) {
       setError(err.message || "Submit failed.");
     } finally {

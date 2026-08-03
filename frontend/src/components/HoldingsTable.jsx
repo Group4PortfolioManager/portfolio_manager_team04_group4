@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getHoldings } from "../services/api";
+import { useDataRefresh } from "../services/refreshStore";
 import HoldingRow from "./HoldingRow";
 
 function HoldingsTable({ showLink = false }) {
   const [holdings, setHoldings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const refreshKey = useDataRefresh();
 
   useEffect(() => {
     getHoldings(1)
@@ -19,7 +21,7 @@ function HoldingsTable({ showLink = false }) {
         setError(err.message);
         setLoading(false);
       });
-  }, []);
+  }, [refreshKey]);
 
   if (loading) {
     return (
