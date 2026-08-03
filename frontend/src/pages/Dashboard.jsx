@@ -4,6 +4,7 @@ import PerformanceChart from "../components/PerformanceChart";
 import HoldingsTable from "../components/HoldingsTable";
 import StatTile from "../components/StatTile";
 import { getPortfolio, getHoldings, getStock } from "../services/api";
+import { useDataRefresh } from "../services/refreshStore";
 
 const ASSET_TYPE_LABELS = {
   Stock: "stocks_value",
@@ -15,6 +16,7 @@ function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const refreshKey = useDataRefresh();
 
   useEffect(() => {
     let isMounted = true;
@@ -68,7 +70,7 @@ function Dashboard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   const holdingsSummary = [
     { label: "Stocks Value", value: summary?.stocks_value ?? 0 },
