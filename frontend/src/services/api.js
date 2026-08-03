@@ -1,12 +1,15 @@
-const API_BASE_URL = 'http://127.0.0.1:5000';
+const API_BASE_URL = "http://127.0.0.1:5000";
 
-/*GET METHOD*/
+/* GET METHOD */
 async function fetchJson(url) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, {
+      signal: controller.signal,
+    });
+
     let data = null;
 
     try {
@@ -23,10 +26,12 @@ async function fetchJson(url) {
 
 async function fetchWithJsonFallback(url, options) {
   const response = await fetch(url, options);
-  const contentType = response.headers.get('content-type') || '';
+  const contentType =
+    response.headers.get("content-type") || "";
+
   let data;
 
-  if (contentType.includes('application/json')) {
+  if (contentType.includes("application/json")) {
     try {
       data = await response.json();
     } catch {
@@ -34,10 +39,12 @@ async function fetchWithJsonFallback(url, options) {
     }
   } else {
     const text = await response.text();
+
     data = {
       error: response.ok
-        ? 'Unexpected non-JSON response from server.'
-        : text || 'Server returned a non-JSON error response.',
+        ? "Unexpected non-JSON response from server."
+        : text ||
+          "Server returned a non-JSON error response.",
     };
   }
 
@@ -45,55 +52,94 @@ async function fetchWithJsonFallback(url, options) {
 }
 
 async function getPortfolio(portfolioId) {
-  return fetchJson(`${API_BASE_URL}/portfolios/${portfolioId}`);
+  return fetchJson(
+    `${API_BASE_URL}/portfolios/${portfolioId}`
+  );
 }
 
 async function getHoldings(portfolioId) {
-  return fetchJson(`${API_BASE_URL}/portfolios/${portfolioId}/holdings`);
+  return fetchJson(
+    `${API_BASE_URL}/portfolios/${portfolioId}/holdings`
+  );
 }
 
-async function getPortfolioPerformance(portfolioId, windowType = 'months', windowSize = 12) {
+async function getPortfolioPerformance(
+  portfolioId,
+  windowType = "months",
+  windowSize = 12
+) {
   return fetchJson(
     `${API_BASE_URL}/portfolios/${portfolioId}/performance?window_type=${windowType}&window_size=${windowSize}`
   );
 }
 
 async function getHolding(holdingId) {
-  return fetchJson(`${API_BASE_URL}/holdings/${holdingId}`);
+  return fetchJson(
+    `${API_BASE_URL}/holdings/${holdingId}`
+  );
 }
 
 async function getAssets() {
   return fetchJson(`${API_BASE_URL}/assets`);
 }
 
-async function getStockHistory(ticker, startDate, endDate, interval = '1d') {
-  return fetchJson(`${API_BASE_URL}/stocks/${ticker}/history?start_date=${startDate}&end_date=${endDate}&interval=${interval}`);
+async function getStockHistory(
+  ticker,
+  startDate,
+  endDate,
+  interval = "1d"
+) {
+  return fetchJson(
+    `${API_BASE_URL}/stocks/${ticker}/history?start_date=${startDate}&end_date=${endDate}&interval=${interval}`
+  );
 }
 
 async function getStock(ticker) {
-  return fetchJson(`${API_BASE_URL}/stocks/${ticker}`);
+  return fetchJson(
+    `${API_BASE_URL}/stocks/${ticker}`
+  );
 }
 
-async function buyHolding(portfolioId, ticker, shares, costBasis, purchaseDate = new Date().toISOString().split('T')[0]) {
-  return fetchWithJsonFallback(`${API_BASE_URL}/portfolios/${portfolioId}/buy`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ticker,
-      company_name: ticker,
-      shares,
-      cost_basis: costBasis,
-      purchase_date: purchaseDate,
-    })
-  });
+async function buyHolding(
+  portfolioId,
+  assetId,
+  ticker,
+  shares
+) {
+  return fetchWithJsonFallback(
+    `${API_BASE_URL}/portfolios/${portfolioId}/buy`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        asset_id: assetId,
+        ticker,
+        shares,
+      }),
+    }
+  );
 }
 
-async function sellHolding(portfolioId, ticker, shares, salePrice) {
-  return fetchWithJsonFallback(`${API_BASE_URL}/portfolios/${portfolioId}/sell`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ticker, shares, sale_price: salePrice })
-  });
+async function sellHolding(
+  portfolioId,
+  ticker,
+  shares
+) {
+  return fetchWithJsonFallback(
+    `${API_BASE_URL}/portfolios/${portfolioId}/sell`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ticker,
+        shares,
+      }),
+    }
+  );
 }
 
 export {

@@ -2,9 +2,15 @@ import traceback
 from datetime import datetime
 
 from flask import Blueprint, request
-from app.services.analytics_service import get_portfolio_performance_history
+
+from app.services.analytics_service import (
+    get_portfolio_performance_history,
+)
 from app.services.database_service import DataBaseService
-from app.services.yahoo_service import get_historical_data, get_info
+from app.services.yahoo_service import (
+    get_historical_data,
+    get_info,
+)
 
 
 api_bp = Blueprint("api_bp", __name__)
@@ -21,8 +27,13 @@ def get_portfolios():
 
         return portfolios, 200
 
-    except Exception:
-        return {"error": "Unable to load portfolios"}, 500
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to load portfolios",
+            "details": str(error),
+        }, 500
 
 
 @api_bp.route(
@@ -53,9 +64,12 @@ def get_portfolio(portfolio_id):
         }, 200
 
     except Exception as error:
-        traceback.print_exec()
-        
-        return {"error": "Unable to load portfolio", "details": str(error), }, 500
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to load portfolio",
+            "details": str(error),
+        }, 500
 
 
 @api_bp.route(
@@ -70,8 +84,13 @@ def get_portfolio_holdings(portfolio_id):
 
         return holdings or [], 200
 
-    except Exception:
-        return {"error": "Unable to load holdings"}, 500
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to load holdings",
+            "details": str(error),
+        }, 500
 
 
 @api_bp.route(
@@ -79,30 +98,57 @@ def get_portfolio_holdings(portfolio_id):
     methods=["GET"],
 )
 def get_portfolio_performance(portfolio_id):
-    window_type = request.args.get("window_type", default="months", type=str).lower()
-    window_size = request.args.get("window_size", default=12, type=int)
+    window_type = request.args.get(
+        "window_type",
+        default="months",
+        type=str,
+    ).lower()
 
-    if window_type not in ("months", "days"):
-        return {"error": "window_type must be 'months' or 'days'"}, 400
-
-    if window_size is None or window_size < 2:
-        return {"error": "window_size must be at least 2"}, 400
-
-    history = get_portfolio_performance_history(
-        portfolio_id,
-        window_type=window_type,
-        window_size=window_size,
+    window_size = request.args.get(
+        "window_size",
+        default=12,
+        type=int,
     )
 
-    if history is None:
-        return {"error": "Portfolio not found"}, 404
+    if window_type not in ("months", "days"):
+        return {
+            "error": (
+                "window_type must be 'months' or 'days'"
+            )
+        }, 400
 
-    return {
-        "portfolio_id": portfolio_id,
-        "window_type": window_type,
-        "window_size": window_size,
-        "history": history,
-    }, 200
+    if window_size is None or window_size < 2:
+        return {
+            "error": "window_size must be at least 2"
+        }, 400
+
+    try:
+        history = get_portfolio_performance_history(
+            portfolio_id,
+            window_type=window_type,
+            window_size=window_size,
+        )
+
+        if history is None:
+            return {"error": "Portfolio not found"}, 404
+
+        return {
+            "portfolio_id": portfolio_id,
+            "window_type": window_type,
+            "window_size": window_size,
+            "history": history,
+        }, 200
+
+    except ValueError as error:
+        return {"error": str(error)}, 400
+
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to load portfolio performance",
+            "details": str(error),
+        }, 500
 
 
 @api_bp.route(
@@ -120,8 +166,13 @@ def get_holding(holding_id):
 
         return holding, 200
 
-    except Exception:
-        return {"error": "Unable to load holding"}, 500
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to load holding",
+            "details": str(error),
+        }, 500
 
 
 @api_bp.route("/assets", methods=["GET"])
@@ -130,8 +181,13 @@ def get_assets():
         assets = database_service.get_all_assets()
         return assets, 200
 
-    except Exception:
-        return {"error": "Unable to load assets"}, 500
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to load assets",
+            "details": str(error),
+        }, 500
 
 
 @api_bp.route(
@@ -149,8 +205,13 @@ def get_asset(asset_id):
 
         return asset, 200
 
-    except Exception:
-        return {"error": "Unable to load asset"}, 500
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to load asset",
+            "details": str(error),
+        }, 500
 
 
 @api_bp.route(
@@ -158,6 +219,8 @@ def get_asset(asset_id):
     methods=["GET"],
 )
 def get_stock(ticker):
+    ticker = ticker.strip().upper()
+
     try:
         info = get_info(ticker)
 
@@ -170,20 +233,30 @@ def get_stock(ticker):
             or info.get("navPrice")
         )
 
+        if price is None:
+            return {
+                "error": (
+                    f"Current price was not found for {ticker}"
+                )
+            }, 404
+
         return {
-            "ticker": ticker.upper(),
+            "ticker": ticker,
             "name": (
                 info.get("shortName")
                 or info.get("longName")
-                or ticker.upper()
+                or ticker
             ),
             "price": price,
             "currency": info.get("currency"),
         }, 200
 
-    except Exception:
+    except Exception as error:
+        traceback.print_exc()
+
         return {
-            "error": "Unable to load stock data"
+            "error": "Unable to load stock data",
+            "details": str(error),
         }, 500
 
 
@@ -215,7 +288,7 @@ def get_stock_history(ticker):
         )
 
         df = get_historical_data(
-            ticker,
+            ticker.strip().upper(),
             start,
             end,
             interval=interval,
@@ -228,9 +301,12 @@ def get_stock_history(ticker):
             )
         }, 400
 
-    except Exception:
+    except Exception as error:
+        traceback.print_exc()
+
         return {
-            "error": "Unable to load historical data"
+            "error": "Unable to load historical data",
+            "details": str(error),
         }, 500
 
     if df.empty:
@@ -245,7 +321,7 @@ def get_stock_history(ticker):
             history[column] = history[column].astype(str)
 
     return {
-        "ticker": ticker.upper(),
+        "ticker": ticker.strip().upper(),
         "interval": interval,
         "data": history.to_dict(
             orient="records"
@@ -262,40 +338,72 @@ def buy_holding(portfolio_id):
 
     asset_id = data.get("asset_id")
     ticker = data.get("ticker")
-    company_name = data.get("company_name")
     shares = data.get("shares")
-    cost_basis = data.get("cost_basis")
-    purchase_date = data.get("purchase_date")
-
-    if asset_id is None:
-        asset_id = database_service.get_asset_by_type("Stock")
 
     if (
         asset_id is None
         or not ticker
-        or not company_name
         or shares is None
-        or cost_basis is None
-        or purchase_date is None
     ):
         return {
             "error": (
-                "asset_id, ticker, company_name, shares, "
-                "cost_basis, and purchase_date are required"
+                "asset_id, ticker, and shares are required"
             )
         }, 400
 
-    holding = {
-        "portfolio_id": portfolio_id,
-        "asset_id": asset_id,
-        "ticker": ticker,
-        "company_name": company_name,
-        "shares": shares,
-        "cost_basis": cost_basis,
-        "purchase_date": purchase_date,
-    }
+    ticker = ticker.strip().upper()
 
     try:
+        asset = database_service.get_asset_by_id(
+            asset_id
+        )
+
+        if asset is None:
+            return {
+                "error": "Invalid asset_id"
+            }, 400
+
+        if asset.get("asset_type") == "Cash":
+            return {
+                "error": (
+                    "Cash cannot be added as a holding"
+                )
+            }, 400
+
+        info = get_info(ticker) or {}
+
+        current_price = (
+            info.get("currentPrice")
+            or info.get("regularMarketPrice")
+            or info.get("navPrice")
+        )
+
+        if current_price is None:
+            return {
+                "error": (
+                    f"Unable to retrieve a current price "
+                    f"for {ticker}"
+                )
+            }, 400
+
+        company_name = (
+            info.get("shortName")
+            or info.get("longName")
+            or ticker
+        )
+
+        holding = {
+            "portfolio_id": portfolio_id,
+            "asset_id": asset_id,
+            "ticker": ticker,
+            "company_name": company_name,
+            "shares": shares,
+            "cost_basis": current_price,
+            "purchase_date": (
+                datetime.now().date().isoformat()
+            ),
+        }
+
         trade = database_service.add_holding(
             holding
         )
@@ -311,8 +419,13 @@ def buy_holding(portfolio_id):
     except ValueError as error:
         return {"error": str(error)}, 400
 
-    except Exception:
-        return {"error": "Unable to buy holding"}, 500
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to buy holding",
+            "details": str(error),
+        }, 500
 
 
 @api_bp.route(
@@ -324,21 +437,31 @@ def sell_holding(portfolio_id):
 
     ticker = data.get("ticker")
     shares = data.get("shares")
-    sale_price = data.get("sale_price")
 
-    if (
-        not ticker
-        or shares is None
-        or sale_price is None
-    ):
+    if not ticker or shares is None:
         return {
-            "error": (
-                "ticker, shares, and sale_price "
-                "are required"
-            )
+            "error": "ticker and shares are required"
         }, 400
 
+    ticker = ticker.strip().upper()
+
     try:
+        info = get_info(ticker) or {}
+
+        sale_price = (
+            info.get("currentPrice")
+            or info.get("regularMarketPrice")
+            or info.get("navPrice")
+        )
+
+        if sale_price is None:
+            return {
+                "error": (
+                    f"Unable to retrieve a current price "
+                    f"for {ticker}"
+                )
+            }, 400
+
         trade = database_service.remove_shares(
             portfolio_id,
             ticker,
@@ -351,5 +474,10 @@ def sell_holding(portfolio_id):
     except ValueError as error:
         return {"error": str(error)}, 400
 
-    except Exception:
-        return {"error": "Unable to sell holding"}, 500
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to sell holding",
+            "details": str(error),
+        }, 500
