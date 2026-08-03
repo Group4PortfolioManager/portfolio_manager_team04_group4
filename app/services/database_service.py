@@ -5,18 +5,9 @@ from app.services.yahoo_service import get_info
 
 
 class DataBaseService:
-    def __init__(self):
-        self._db = None
-
-    @property
-    def db(self):
-        if self._db is None or not self._db.is_connected():
-            self._db = get_db_connection()
-
-        return self._db
-
     def get_all_portfolios(self):
-        cursor = self.db.cursor(dictionary=True)
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
         try:
             cursor.execute(
@@ -31,9 +22,11 @@ class DataBaseService:
 
         finally:
             cursor.close()
+            db.close()
 
     def get_portfolio_by_id(self, portfolio_id):
-        cursor = self.db.cursor(dictionary=True)
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
         try:
             cursor.execute(
@@ -49,9 +42,11 @@ class DataBaseService:
 
         finally:
             cursor.close()
+            db.close()
 
     def get_portfolio_holdings(self, portfolio_id):
-        cursor = self.db.cursor(dictionary=True)
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
         try:
             cursor.execute(
@@ -79,9 +74,11 @@ class DataBaseService:
 
         finally:
             cursor.close()
+            db.close()
 
     def get_holding_by_id(self, holding_id):
-        cursor = self.db.cursor(dictionary=True)
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
         try:
             cursor.execute(
@@ -108,9 +105,11 @@ class DataBaseService:
 
         finally:
             cursor.close()
+            db.close()
 
     def get_holding_by_ticker(self, portfolio_id, ticker):
-        cursor = self.db.cursor(dictionary=True)
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
         try:
             cursor.execute(
@@ -141,9 +140,11 @@ class DataBaseService:
 
         finally:
             cursor.close()
+            db.close()
 
     def get_all_assets(self):
-        cursor = self.db.cursor(dictionary=True)
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
         try:
             cursor.execute(
@@ -158,9 +159,11 @@ class DataBaseService:
 
         finally:
             cursor.close()
+            db.close()
 
     def get_asset_by_id(self, asset_id):
-        cursor = self.db.cursor(dictionary=True)
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
         try:
             cursor.execute(
@@ -176,9 +179,11 @@ class DataBaseService:
 
         finally:
             cursor.close()
+            db.close()
 
     def add_portfolio(self, portfolio):
-        cursor = self.db.cursor()
+        db = get_db_connection()
+        cursor = db.cursor()
 
         try:
             cursor.execute(
@@ -196,20 +201,23 @@ class DataBaseService:
                 ),
             )
 
-            self.db.commit()
+            db.commit()
 
             return {
                 "portfolio_id": cursor.lastrowid,
                 "portfolio_name": portfolio["portfolio_name"],
-                "cash_balance": float(portfolio["cash_balance"]),
+                "cash_balance": float(
+                    portfolio["cash_balance"]
+                ),
             }
 
         except Exception:
-            self.db.rollback()
+            db.rollback()
             raise
 
         finally:
             cursor.close()
+            db.close()
 
     def add_holding(self, holding):
         """
@@ -244,8 +252,13 @@ class DataBaseService:
             )
 
         try:
-            shares_bought = Decimal(str(holding["shares"]))
-            cost_basis = Decimal(str(holding["cost_basis"]))
+            shares_bought = Decimal(
+                str(holding["shares"])
+            )
+
+            cost_basis = Decimal(
+                str(holding["cost_basis"])
+            )
 
         except (
             InvalidOperation,
@@ -274,7 +287,8 @@ class DataBaseService:
 
         purchase_total = shares_bought * cost_basis
 
-        cursor = self.db.cursor(dictionary=True)
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
         try:
             cursor.execute(
@@ -292,7 +306,9 @@ class DataBaseService:
             portfolio = cursor.fetchone()
 
             if portfolio is None:
-                raise ValueError("Portfolio not found.")
+                raise ValueError(
+                    "Portfolio not found."
+                )
 
             cash_balance = Decimal(
                 str(portfolio["cash_balance"] or 0)
@@ -412,9 +428,11 @@ class DataBaseService:
             )
 
             if cursor.rowcount == 0:
-                raise ValueError("Portfolio not found.")
+                raise ValueError(
+                    "Portfolio not found."
+                )
 
-            self.db.commit()
+            db.commit()
 
             return {
                 "action": action,
@@ -425,19 +443,24 @@ class DataBaseService:
                 "company_name": company_name,
                 "shares": float(final_shares),
                 "cost_basis": float(final_cost_basis),
-                "purchase_date": str(final_purchase_date),
-                "purchase_total": float(purchase_total),
+                "purchase_date": str(
+                    final_purchase_date
+                ),
+                "purchase_total": float(
+                    purchase_total
+                ),
                 "cash_remaining": float(
                     cash_balance - purchase_total
                 ),
             }
 
         except Exception:
-            self.db.rollback()
+            db.rollback()
             raise
 
         finally:
             cursor.close()
+            db.close()
 
     def remove_shares(
         self,
@@ -451,7 +474,9 @@ class DataBaseService:
                 str(shares_to_remove)
             )
 
-            sale_price = Decimal(str(sale_price))
+            sale_price = Decimal(
+                str(sale_price)
+            )
 
         except (
             InvalidOperation,
@@ -474,7 +499,9 @@ class DataBaseService:
             )
 
         ticker = ticker.strip().upper()
-        cursor = self.db.cursor(dictionary=True)
+
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
         try:
             cursor.execute(
@@ -559,9 +586,11 @@ class DataBaseService:
             )
 
             if cursor.rowcount == 0:
-                raise ValueError("Portfolio not found.")
+                raise ValueError(
+                    "Portfolio not found."
+                )
 
-            self.db.commit()
+            db.commit()
 
             return {
                 "action": action,
@@ -580,14 +609,16 @@ class DataBaseService:
             }
 
         except Exception:
-            self.db.rollback()
+            db.rollback()
             raise
 
         finally:
             cursor.close()
+            db.close()
 
     def get_asset_by_type(self, asset_type):
-        cursor = self.db.cursor(dictionary=True)
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
 
         try:
             cursor.execute(
@@ -610,7 +641,7 @@ class DataBaseService:
                     (asset_type,),
                 )
 
-                self.db.commit()
+                db.commit()
 
                 return cursor.lastrowid
 
@@ -618,9 +649,11 @@ class DataBaseService:
 
         finally:
             cursor.close()
+            db.close()
 
     def add_asset(self, asset_type):
-        cursor = self.db.cursor()
+        db = get_db_connection()
+        cursor = db.cursor()
 
         try:
             cursor.execute(
@@ -631,7 +664,7 @@ class DataBaseService:
                 (asset_type,),
             )
 
-            self.db.commit()
+            db.commit()
 
             return {
                 "asset_id": cursor.lastrowid,
@@ -639,14 +672,16 @@ class DataBaseService:
             }
 
         except Exception:
-            self.db.rollback()
+            db.rollback()
             raise
 
         finally:
             cursor.close()
+            db.close()
 
     def update_portfolio(self, portfolio):
-        cursor = self.db.cursor()
+        db = get_db_connection()
+        cursor = db.cursor()
 
         try:
             cursor.execute(
@@ -664,19 +699,21 @@ class DataBaseService:
                 ),
             )
 
-            self.db.commit()
+            db.commit()
 
             return cursor.rowcount > 0
 
         except Exception:
-            self.db.rollback()
+            db.rollback()
             raise
 
         finally:
             cursor.close()
+            db.close()
 
     def update_holding(self, holding):
-        cursor = self.db.cursor()
+        db = get_db_connection()
+        cursor = db.cursor()
 
         try:
             cursor.execute(
@@ -704,19 +741,21 @@ class DataBaseService:
                 ),
             )
 
-            self.db.commit()
+            db.commit()
 
             return cursor.rowcount > 0
 
         except Exception:
-            self.db.rollback()
+            db.rollback()
             raise
 
         finally:
             cursor.close()
+            db.close()
 
     def delete_portfolio_by_id(self, portfolio_id):
-        cursor = self.db.cursor()
+        db = get_db_connection()
+        cursor = db.cursor()
 
         try:
             cursor.execute(
@@ -727,19 +766,21 @@ class DataBaseService:
                 (portfolio_id,),
             )
 
-            self.db.commit()
+            db.commit()
 
             return cursor.rowcount > 0
 
         except Exception:
-            self.db.rollback()
+            db.rollback()
             raise
 
         finally:
             cursor.close()
+            db.close()
 
     def delete_holding_by_id(self, holding_id):
-        cursor = self.db.cursor()
+        db = get_db_connection()
+        cursor = db.cursor()
 
         try:
             cursor.execute(
@@ -750,19 +791,21 @@ class DataBaseService:
                 (holding_id,),
             )
 
-            self.db.commit()
+            db.commit()
 
             return cursor.rowcount > 0
 
         except Exception:
-            self.db.rollback()
+            db.rollback()
             raise
 
         finally:
             cursor.close()
+            db.close()
 
     def delete_asset_by_id(self, asset_id):
-        cursor = self.db.cursor()
+        db = get_db_connection()
+        cursor = db.cursor()
 
         try:
             cursor.execute(
@@ -773,16 +816,17 @@ class DataBaseService:
                 (asset_id,),
             )
 
-            self.db.commit()
+            db.commit()
 
             return cursor.rowcount > 0
 
         except Exception:
-            self.db.rollback()
+            db.rollback()
             raise
 
         finally:
             cursor.close()
+            db.close()
 
     def get_portfolio_summary(self, portfolio_id):
         """
@@ -793,7 +837,8 @@ class DataBaseService:
         type. Yahoo Finance supplies current price and previous close.
         """
 
-        cursor = self.db.cursor(
+        db = get_db_connection()
+        cursor = db.cursor(
             dictionary=True,
             buffered=True,
         )
@@ -830,139 +875,139 @@ class DataBaseService:
 
             holdings = cursor.fetchall()
 
-            cash_balance = Decimal(
-                str(portfolio["cash_balance"] or 0)
-            )
-
-            stocks_value = Decimal("0.00")
-            bonds_value = Decimal("0.00")
-            crypto_value = Decimal("0.00")
-
-            total_cost_basis = Decimal("0.00")
-            total_return = Decimal("0.00")
-            day_gain = Decimal("0.00")
-            previous_holdings_value = Decimal("0.00")
-
-            for holding in holdings:
-                ticker = holding["ticker"]
-
-                shares = Decimal(
-                    str(holding["shares"] or 0)
-                )
-
-                cost_basis = Decimal(
-                    str(holding["cost_basis"] or 0)
-                )
-
-                asset_type = (
-                    holding["asset_type"] or "Stock"
-                )
-
-                try:
-                    info = get_info(ticker) or {}
-                except Exception:
-                    info = {}
-
-                current_price_value = (
-                    info.get("currentPrice")
-                    or info.get("regularMarketPrice")
-                    or info.get("navPrice")
-                    or 0
-                )
-
-                previous_close_value = (
-                    info.get("previousClose")
-                    or info.get(
-                        "regularMarketPreviousClose"
-                    )
-                    or current_price_value
-                    or 0
-                )
-
-                current_price = Decimal(
-                    str(current_price_value)
-                )
-
-                previous_close = Decimal(
-                    str(previous_close_value)
-                )
-
-                market_value = (
-                    shares * current_price
-                )
-
-                holding_cost = (
-                    shares * cost_basis
-                )
-
-                profit_loss = (
-                    market_value - holding_cost
-                )
-
-                holding_day_gain = (
-                    current_price - previous_close
-                ) * shares
-
-                previous_market_value = (
-                    previous_close * shares
-                )
-
-                if asset_type == "Stock":
-                    stocks_value += market_value
-
-                elif asset_type == "Bond":
-                    bonds_value += market_value
-
-                elif asset_type == "Crypto":
-                    crypto_value += market_value
-
-                total_cost_basis += holding_cost
-                total_return += profit_loss
-                day_gain += holding_day_gain
-                previous_holdings_value += (
-                    previous_market_value
-                )
-
-            total_value = (
-                stocks_value
-                + bonds_value
-                + crypto_value
-                + cash_balance
-            )
-
-            total_return_percent = Decimal("0.00")
-
-            if total_cost_basis > 0:
-                total_return_percent = (
-                    total_return / total_cost_basis
-                ) * Decimal("100")
-
-            day_gain_percent = Decimal("0.00")
-
-            if previous_holdings_value > 0:
-                day_gain_percent = (
-                    day_gain
-                    / previous_holdings_value
-                ) * Decimal("100")
-
-            return {
-                "cash_balance": float(cash_balance),
-                "stocks_value": float(stocks_value),
-                "bonds_value": float(bonds_value),
-                "crypto_value": float(crypto_value),
-                "total_value": float(total_value),
-                "total_return": float(total_return),
-                "total_return_percent": float(
-                    total_return_percent
-                ),
-                "day_gain": float(day_gain),
-                "day_gain_percent": float(
-                    day_gain_percent
-                ),
-                "cost_basis_total": float(
-                    total_cost_basis
-                ),
-            }
-
         finally:
             cursor.close()
+            db.close()
+
+        cash_balance = Decimal(
+            str(portfolio["cash_balance"] or 0)
+        )
+
+        stocks_value = Decimal("0.00")
+        bonds_value = Decimal("0.00")
+        crypto_value = Decimal("0.00")
+
+        total_cost_basis = Decimal("0.00")
+        total_return = Decimal("0.00")
+        day_gain = Decimal("0.00")
+        previous_holdings_value = Decimal("0.00")
+
+        for holding in holdings:
+            ticker = holding["ticker"]
+
+            shares = Decimal(
+                str(holding["shares"] or 0)
+            )
+
+            cost_basis = Decimal(
+                str(holding["cost_basis"] or 0)
+            )
+
+            asset_type = (
+                holding["asset_type"] or "Stock"
+            )
+
+            try:
+                info = get_info(ticker) or {}
+
+            except Exception as error:
+                print(
+                    f"Yahoo lookup failed for "
+                    f"{ticker}: {error}"
+                )
+                info = {}
+
+            current_price_value = (
+                info.get("currentPrice")
+                or info.get("regularMarketPrice")
+                or info.get("navPrice")
+                or 0
+            )
+
+            previous_close_value = (
+                info.get("previousClose")
+                or info.get(
+                    "regularMarketPreviousClose"
+                )
+                or current_price_value
+                or 0
+            )
+
+            current_price = Decimal(
+                str(current_price_value)
+            )
+
+            previous_close = Decimal(
+                str(previous_close_value)
+            )
+
+            market_value = shares * current_price
+            holding_cost = shares * cost_basis
+
+            profit_loss = (
+                market_value - holding_cost
+            )
+
+            holding_day_gain = (
+                current_price - previous_close
+            ) * shares
+
+            previous_market_value = (
+                previous_close * shares
+            )
+
+            if asset_type == "Stock":
+                stocks_value += market_value
+
+            elif asset_type == "Bond":
+                bonds_value += market_value
+
+            elif asset_type == "Crypto":
+                crypto_value += market_value
+
+            total_cost_basis += holding_cost
+            total_return += profit_loss
+            day_gain += holding_day_gain
+            previous_holdings_value += (
+                previous_market_value
+            )
+
+        total_value = (
+            stocks_value
+            + bonds_value
+            + crypto_value
+            + cash_balance
+        )
+
+        total_return_percent = Decimal("0.00")
+
+        if total_cost_basis > 0:
+            total_return_percent = (
+                total_return / total_cost_basis
+            ) * Decimal("100")
+
+        day_gain_percent = Decimal("0.00")
+
+        if previous_holdings_value > 0:
+            day_gain_percent = (
+                day_gain / previous_holdings_value
+            ) * Decimal("100")
+
+        return {
+            "cash_balance": float(cash_balance),
+            "stocks_value": float(stocks_value),
+            "bonds_value": float(bonds_value),
+            "crypto_value": float(crypto_value),
+            "total_value": float(total_value),
+            "total_return": float(total_return),
+            "total_return_percent": float(
+                total_return_percent
+            ),
+            "day_gain": float(day_gain),
+            "day_gain_percent": float(
+                day_gain_percent
+            ),
+            "cost_basis_total": float(
+                total_cost_basis
+            ),
+        }
