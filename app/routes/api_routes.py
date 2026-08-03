@@ -1,6 +1,9 @@
+from datetime import datetime
+
 from flask import Blueprint, request
 
 from app.services.database_service import DataBaseService
+from app.services.yahoo_service import get_historical_data, get_info
 
 
 api_bp = Blueprint("api_bp", __name__)
@@ -10,21 +13,15 @@ database_service = DataBaseService()
 @api_bp.route("/portfolios", methods=["GET"])
 def get_portfolios():
     try:
-        portfolios = (
-            database_service.get_all_portfolios()
-        )
+        portfolios = database_service.get_all_portfolios()
 
         if portfolios is None:
-            return {
-                "error": "Portfolios not found"
-            }, 404
+            return {"error": "Portfolios not found"}, 404
 
         return portfolios, 200
 
     except Exception:
-        return {
-            "error": "Unable to load portfolios"
-        }, 500
+        return {"error": "Unable to load portfolios"}, 500
 
 
 @api_bp.route(
@@ -33,21 +30,15 @@ def get_portfolios():
 )
 def get_portfolio(portfolio_id):
     try:
-        portfolio = (
-            database_service.get_portfolio_by_id(
-                portfolio_id
-            )
+        portfolio = database_service.get_portfolio_by_id(
+            portfolio_id
         )
 
         if portfolio is None:
-            return {
-                "error": "Portfolio not found"
-            }, 404
+            return {"error": "Portfolio not found"}, 404
 
-        summary = (
-            database_service.get_portfolio_summary(
-                portfolio_id
-            )
+        summary = database_service.get_portfolio_summary(
+            portfolio_id
         )
 
         if summary is None:
@@ -61,9 +52,7 @@ def get_portfolio(portfolio_id):
         }, 200
 
     except Exception:
-        return {
-            "error": "Unable to load portfolio"
-        }, 500
+        return {"error": "Unable to load portfolio"}, 500
 
 
 @api_bp.route(
@@ -72,18 +61,14 @@ def get_portfolio(portfolio_id):
 )
 def get_portfolio_holdings(portfolio_id):
     try:
-        holdings = (
-            database_service.get_portfolio_holdings(
-                portfolio_id
-            )
+        holdings = database_service.get_portfolio_holdings(
+            portfolio_id
         )
 
         return holdings or [], 200
 
     except Exception:
-        return {
-            "error": "Unable to load holdings"
-        }, 500
+        return {"error": "Unable to load holdings"}, 500
 
 
 @api_bp.route(
@@ -92,23 +77,17 @@ def get_portfolio_holdings(portfolio_id):
 )
 def get_holding(holding_id):
     try:
-        holding = (
-            database_service.get_holding_by_id(
-                holding_id
-            )
+        holding = database_service.get_holding_by_id(
+            holding_id
         )
 
         if holding is None:
-            return {
-                "error": "Holding not found"
-            }, 404
+            return {"error": "Holding not found"}, 404
 
         return holding, 200
 
     except Exception:
-        return {
-            "error": "Unable to load holding"
-        }, 500
+        return {"error": "Unable to load holding"}, 500
 
 
 @api_bp.route("/assets", methods=["GET"])
@@ -118,9 +97,7 @@ def get_assets():
         return assets, 200
 
     except Exception:
-        return {
-            "error": "Unable to load assets"
-        }, 500
+        return {"error": "Unable to load assets"}, 500
 
 
 @api_bp.route(
@@ -134,16 +111,112 @@ def get_asset(asset_id):
         )
 
         if asset is None:
-            return {
-                "error": "Asset not found"
-            }, 404
+            return {"error": "Asset not found"}, 404
 
         return asset, 200
 
     except Exception:
+        return {"error": "Unable to load asset"}, 500
+
+
+@api_bp.route(
+    "/stocks/<string:ticker>",
+    methods=["GET"],
+)
+def get_stock(ticker):
+    try:
+        info = get_info(ticker)
+
+        if not info:
+            return {"error": "Stock not found"}, 404
+
+        price = (
+            info.get("currentPrice")
+            or info.get("regularMarketPrice")
+            or info.get("navPrice")
+        )
+
         return {
-            "error": "Unable to load asset"
+            "ticker": ticker.upper(),
+            "name": (
+                info.get("shortName")
+                or info.get("longName")
+                or ticker.upper()
+            ),
+            "price": price,
+            "currency": info.get("currency"),
+        }, 200
+
+    except Exception:
+        return {
+            "error": "Unable to load stock data"
         }, 500
+
+
+@api_bp.route(
+    "/stocks/<string:ticker>/history",
+    methods=["GET"],
+)
+def get_stock_history(ticker):
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+    interval = request.args.get("interval", "1d")
+
+    if not start_date or not end_date:
+        return {
+            "error": (
+                "start_date and end_date are required"
+            )
+        }, 400
+
+    try:
+        start = datetime.strptime(
+            start_date,
+            "%Y-%m-%d",
+        )
+
+        end = datetime.strptime(
+            end_date,
+            "%Y-%m-%d",
+        )
+
+        df = get_historical_data(
+            ticker,
+            start,
+            end,
+            interval=interval,
+        )
+
+    except ValueError:
+        return {
+            "error": (
+                "Dates must be in YYYY-MM-DD format"
+            )
+        }, 400
+
+    except Exception:
+        return {
+            "error": "Unable to load historical data"
+        }, 500
+
+    if df.empty:
+        return {
+            "error": "No historical data found"
+        }, 404
+
+    history = df.reset_index()
+
+    for column in history.columns:
+        if "date" in str(column).lower():
+            history[column] = history[column].astype(str)
+
+    return {
+        "ticker": ticker.upper(),
+        "interval": interval,
+        "data": history.to_dict(
+            orient="records"
+        ),
+    }, 200
 
 
 @api_bp.route(
@@ -199,14 +272,10 @@ def buy_holding(portfolio_id):
         return trade, status_code
 
     except ValueError as error:
-        return {
-            "error": str(error)
-        }, 400
+        return {"error": str(error)}, 400
 
     except Exception:
-        return {
-            "error": "Unable to buy holding"
-        }, 500
+        return {"error": "Unable to buy holding"}, 500
 
 
 @api_bp.route(
@@ -243,11 +312,7 @@ def sell_holding(portfolio_id):
         return trade, 200
 
     except ValueError as error:
-        return {
-            "error": str(error)
-        }, 400
+        return {"error": str(error)}, 400
 
     except Exception:
-        return {
-            "error": "Unable to sell holding"
-        }, 500
+        return {"error": "Unable to sell holding"}, 500

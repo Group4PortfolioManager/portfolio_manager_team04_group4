@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
 from app.database import get_db_connection
+from app.services.yahoo_service import get_info
 
 
 class DataBaseService:
@@ -56,17 +57,20 @@ class DataBaseService:
             cursor.execute(
                 """
                 SELECT
-                    holding_id,
-                    portfolio_id,
-                    asset_id,
-                    ticker,
-                    company_name,
-                    shares,
-                    cost_basis,
-                    purchase_date
-                FROM holdings
-                WHERE portfolio_id = %s
-                ORDER BY ticker;
+                    h.holding_id,
+                    h.portfolio_id,
+                    h.asset_id,
+                    a.asset_type,
+                    h.ticker,
+                    h.company_name,
+                    h.shares,
+                    h.cost_basis,
+                    h.purchase_date
+                FROM holdings AS h
+                INNER JOIN asset AS a
+                    ON h.asset_id = a.asset_id
+                WHERE h.portfolio_id = %s
+                ORDER BY h.ticker;
                 """,
                 (portfolio_id,),
             )
@@ -83,16 +87,19 @@ class DataBaseService:
             cursor.execute(
                 """
                 SELECT
-                    holding_id,
-                    portfolio_id,
-                    asset_id,
-                    ticker,
-                    company_name,
-                    shares,
-                    cost_basis,
-                    purchase_date
-                FROM holdings
-                WHERE holding_id = %s;
+                    h.holding_id,
+                    h.portfolio_id,
+                    h.asset_id,
+                    a.asset_type,
+                    h.ticker,
+                    h.company_name,
+                    h.shares,
+                    h.cost_basis,
+                    h.purchase_date
+                FROM holdings AS h
+                INNER JOIN asset AS a
+                    ON h.asset_id = a.asset_id
+                WHERE h.holding_id = %s;
                 """,
                 (holding_id,),
             )
@@ -109,17 +116,20 @@ class DataBaseService:
             cursor.execute(
                 """
                 SELECT
-                    holding_id,
-                    portfolio_id,
-                    asset_id,
-                    ticker,
-                    company_name,
-                    shares,
-                    cost_basis,
-                    purchase_date
-                FROM holdings
-                WHERE portfolio_id = %s
-                  AND ticker = %s;
+                    h.holding_id,
+                    h.portfolio_id,
+                    h.asset_id,
+                    a.asset_type,
+                    h.ticker,
+                    h.company_name,
+                    h.shares,
+                    h.cost_basis,
+                    h.purchase_date
+                FROM holdings AS h
+                INNER JOIN asset AS a
+                    ON h.asset_id = a.asset_id
+                WHERE h.portfolio_id = %s
+                  AND h.ticker = %s;
                 """,
                 (
                     portfolio_id,
@@ -203,13 +213,11 @@ class DataBaseService:
 
     def add_holding(self, holding):
         """
-        Adds a new holding or adds shares to an existing ticker.
+        Add a new holding or buy more shares of an existing ticker.
 
-        The incoming cost_basis represents the price paid per share
-        for the new purchase.
-
-        If the ticker already exists, the stored cost_basis becomes
-        the weighted-average cost basis.
+        The incoming cost_basis is the price paid per share for the
+        new purchase. When the ticker already exists, cost_basis is
+        recalculated as a weighted average.
         """
 
         required_fields = [
@@ -403,6 +411,9 @@ class DataBaseService:
                 ),
             )
 
+            if cursor.rowcount == 0:
+                raise ValueError("Portfolio not found.")
+
             self.db.commit()
 
             return {
@@ -548,9 +559,7 @@ class DataBaseService:
             )
 
             if cursor.rowcount == 0:
-                raise ValueError(
-                    "Portfolio not found."
-                )
+                raise ValueError("Portfolio not found.")
 
             self.db.commit()
 
@@ -744,13 +753,17 @@ class DataBaseService:
 
     def get_portfolio_summary(self, portfolio_id):
         """
-        Returns only values that can be calculated from stored
-        database data.
+        Build the live dashboard summary using stored holdings and
+        Yahoo Finance prices.
 
-        These are cost-basis totals, not live market values.
+        The database supplies ticker, shares, cost basis and asset
+        type. Yahoo Finance supplies current price and previous close.
         """
 
-        cursor = self.db.cursor(dictionary=True)
+        cursor = self.db.cursor(
+            dictionary=True,
+            buffered=True,
+        )
 
         try:
             cursor.execute(
@@ -770,11 +783,14 @@ class DataBaseService:
             cursor.execute(
                 """
                 SELECT
-                    asset_id,
-                    shares,
-                    cost_basis
-                FROM holdings
-                WHERE portfolio_id = %s;
+                    h.ticker,
+                    h.shares,
+                    h.cost_basis,
+                    a.asset_type
+                FROM holdings AS h
+                INNER JOIN asset AS a
+                    ON h.asset_id = a.asset_id
+                WHERE h.portfolio_id = %s;
                 """,
                 (portfolio_id,),
             )
@@ -785,12 +801,18 @@ class DataBaseService:
                 str(portfolio["cash_balance"] or 0)
             )
 
-            stocks_cost_basis = Decimal("0.00")
-            bonds_cost_basis = Decimal("0.00")
-            crypto_cost_basis = Decimal("0.00")
+            stocks_value = Decimal("0.00")
+            bonds_value = Decimal("0.00")
+            crypto_value = Decimal("0.00")
+
             total_cost_basis = Decimal("0.00")
+            total_return = Decimal("0.00")
+            day_gain = Decimal("0.00")
+            previous_holdings_value = Decimal("0.00")
 
             for holding in holdings:
+                ticker = holding["ticker"]
+
                 shares = Decimal(
                     str(holding["shares"] or 0)
                 )
@@ -799,33 +821,110 @@ class DataBaseService:
                     str(holding["cost_basis"] or 0)
                 )
 
-                holding_cost = shares * cost_basis
-                asset_id = holding["asset_id"]
+                asset_type = (
+                    holding["asset_type"] or "Stock"
+                )
 
-                if asset_id == 1:
-                    stocks_cost_basis += holding_cost
+                info = get_info(ticker) or {}
 
-                elif asset_id == 2:
-                    bonds_cost_basis += holding_cost
+                current_price_value = (
+                    info.get("currentPrice")
+                    or info.get("regularMarketPrice")
+                    or info.get("navPrice")
+                    or 0
+                )
 
-                elif asset_id == 3:
-                    crypto_cost_basis += holding_cost
+                previous_close_value = (
+                    info.get("previousClose")
+                    or info.get(
+                        "regularMarketPreviousClose"
+                    )
+                    or current_price_value
+                    or 0
+                )
+
+                current_price = Decimal(
+                    str(current_price_value)
+                )
+
+                previous_close = Decimal(
+                    str(previous_close_value)
+                )
+
+                market_value = (
+                    shares * current_price
+                )
+
+                holding_cost = (
+                    shares * cost_basis
+                )
+
+                profit_loss = (
+                    market_value - holding_cost
+                )
+
+                holding_day_gain = (
+                    current_price - previous_close
+                ) * shares
+
+                previous_market_value = (
+                    previous_close * shares
+                )
+
+                if asset_type == "Stock":
+                    stocks_value += market_value
+
+                elif asset_type == "Bond":
+                    bonds_value += market_value
+
+                elif asset_type == "Crypto":
+                    crypto_value += market_value
 
                 total_cost_basis += holding_cost
+                total_return += profit_loss
+                day_gain += holding_day_gain
+                previous_holdings_value += (
+                    previous_market_value
+                )
+
+            total_value = (
+                stocks_value
+                + bonds_value
+                + crypto_value
+                + cash_balance
+            )
+
+            total_return_percent = Decimal("0.00")
+
+            if total_cost_basis > 0:
+                total_return_percent = (
+                    total_return / total_cost_basis
+                ) * Decimal("100")
+
+            day_gain_percent = Decimal("0.00")
+
+            if previous_holdings_value > 0:
+                day_gain_percent = (
+                    day_gain
+                    / previous_holdings_value
+                ) * Decimal("100")
 
             return {
                 "cash_balance": float(cash_balance),
+                "stocks_value": float(stocks_value),
+                "bonds_value": float(bonds_value),
+                "crypto_value": float(crypto_value),
+                "total_value": float(total_value),
+                "total_return": float(total_return),
+                "total_return_percent": float(
+                    total_return_percent
+                ),
+                "day_gain": float(day_gain),
+                "day_gain_percent": float(
+                    day_gain_percent
+                ),
                 "cost_basis_total": float(
                     total_cost_basis
-                ),
-                "stocks_cost_basis": float(
-                    stocks_cost_basis
-                ),
-                "bonds_cost_basis": float(
-                    bonds_cost_basis
-                ),
-                "crypto_cost_basis": float(
-                    crypto_cost_basis
                 ),
             }
 

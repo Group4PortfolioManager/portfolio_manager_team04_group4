@@ -28,7 +28,5 @@ Columns:
 - ticker
 - company_name
 - shares
-- current_price
 - cost_basis
-- market_value
-- profit_loss
+- purchase_date
