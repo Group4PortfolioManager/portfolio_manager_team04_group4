@@ -616,6 +616,41 @@ class DataBaseService:
             cursor.close()
             db.close()
 
+    def get_asset_by_type(self, asset_type):
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT asset_id
+                FROM asset
+                WHERE asset_type = %s;
+                """,
+                (asset_type,),
+            )
+
+            result = cursor.fetchone()
+
+            if result is None:
+                cursor.execute(
+                    """
+                    INSERT INTO asset (asset_type)
+                    VALUES (%s);
+                    """,
+                    (asset_type,),
+                )
+
+                db.commit()
+
+                return cursor.lastrowid
+
+            return result["asset_id"]
+
+        finally:
+            cursor.close()
+            db.close()
+
     def add_asset(self, asset_type):
         db = get_db_connection()
         cursor = db.cursor()

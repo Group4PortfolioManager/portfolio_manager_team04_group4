@@ -39,12 +39,12 @@ function HeaderWithModal() {
     loadSummary();
   }, [refreshKey]);
 
-  const handleAddSubmit = async ({ ticker, shares, price }) => {
+  const handleAddSubmit = async ({ ticker, shares, costBasis }) => {
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const result = await buyHolding(1, ticker, shares, price, new Date().toISOString().split("T")[0]);
+      const result = await buyHolding(1, ticker, shares, costBasis, new Date().toISOString().split("T")[0]);
       if (!result.response.ok) {
         throw new Error(result.data?.error || "Unable to add asset.");
       }

@@ -267,6 +267,9 @@ def buy_holding(portfolio_id):
     cost_basis = data.get("cost_basis")
     purchase_date = data.get("purchase_date")
 
+    if asset_id is None:
+        asset_id = database_service.get_asset_by_type("Stock")
+
     if (
         asset_id is None
         or not ticker
