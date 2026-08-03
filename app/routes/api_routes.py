@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from flask import Blueprint, request
-
+from app.services.analytics_service import get_portfolio_performance_history
 from app.services.database_service import DataBaseService
 from app.services.yahoo_service import get_historical_data, get_info
 
