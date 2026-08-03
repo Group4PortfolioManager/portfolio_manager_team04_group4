@@ -1,3 +1,4 @@
+import traceback
 from datetime import datetime
 
 from flask import Blueprint, request
@@ -51,8 +52,10 @@ def get_portfolio(portfolio_id):
             **summary,
         }, 200
 
-    except Exception:
-        return {"error": "Unable to load portfolio"}, 500
+    except Exception as error:
+        traceback.print_exec()
+        
+        return {"error": "Unable to load portfolio", "details": str(error), }, 500
 
 
 @api_bp.route(

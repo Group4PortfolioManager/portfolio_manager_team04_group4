@@ -824,8 +824,12 @@ class DataBaseService:
                 asset_type = (
                     holding["asset_type"] or "Stock"
                 )
-
-                info = get_info(ticker) or {}
+                try:
+                    info = get_info(ticker) or {}
+                    
+                except Exception as error:
+                    print(f"Yahoo lookup failed for {ticker}: {error}")
+                    info = {}
 
                 current_price_value = (
                     info.get("currentPrice")
