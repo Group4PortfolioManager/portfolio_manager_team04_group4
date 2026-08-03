@@ -10,20 +10,21 @@ class DataBaseService:
 
     @property
     def db(self):
-        # Create a connection if one does not exist or was disconnected.
         if self._db is None or not self._db.is_connected():
             self._db = get_db_connection()
 
         return self._db
-
-    # Portfolio Read Methods
 
     def get_all_portfolios(self):
         cursor = self.db.cursor(dictionary=True)
 
         try:
             cursor.execute(
-                "SELECT * FROM portfolio;"
+                """
+                SELECT *
+                FROM portfolio
+                ORDER BY portfolio_id;
+                """
             )
 
             return cursor.fetchall()
@@ -44,13 +45,10 @@ class DataBaseService:
                 (portfolio_id,),
             )
 
-            # One ID should return one object, not a list.
             return cursor.fetchone()
 
         finally:
             cursor.close()
-
-    # Holding Read Methods
 
     def get_portfolio_holdings(self, portfolio_id):
         cursor = self.db.cursor(dictionary=True)
@@ -106,19 +104,12 @@ class DataBaseService:
                 (holding_id,),
             )
 
-            # One ID should return one object, not a list.
             return cursor.fetchone()
 
         finally:
             cursor.close()
 
     def get_holding_by_ticker(self, portfolio_id, ticker):
-        """
-        Look up a ticker inside a specific portfolio.
-
-        portfolio_id is needed because the unique database
-        constraint applies to portfolio_id and ticker together.
-        """
         cursor = self.db.cursor(dictionary=True)
 
         try:
@@ -151,14 +142,16 @@ class DataBaseService:
         finally:
             cursor.close()
 
-    # Asset Read Methods
-
     def get_all_assets(self):
         cursor = self.db.cursor(dictionary=True)
 
         try:
             cursor.execute(
-                "SELECT * FROM asset;"
+                """
+                SELECT *
+                FROM asset
+                ORDER BY asset_id;
+                """
             )
 
             return cursor.fetchall()
@@ -179,13 +172,10 @@ class DataBaseService:
                 (asset_id,),
             )
 
-            # One ID should return one object, not a list.
             return cursor.fetchone()
 
         finally:
             cursor.close()
-
-    # Portfolio Create Method
 
     def add_portfolio(self, portfolio):
         cursor = self.db.cursor()
@@ -211,7 +201,7 @@ class DataBaseService:
             return {
                 "portfolio_id": cursor.lastrowid,
                 "portfolio_name": portfolio["portfolio_name"],
-                "cash_balance": portfolio["cash_balance"],
+                "cash_balance": float(portfolio["cash_balance"]),
             }
 
         except Exception:
@@ -221,28 +211,13 @@ class DataBaseService:
         finally:
             cursor.close()
 
-    # Holoding Create / Buy Method
-
     def add_holding(self, holding):
         """
-        Expected holding data:
+        Add a new holding or buy more shares of an existing ticker.
 
-        {
-            "portfolio_id": 1,
-            "asset_id": 1,
-            "ticker": "AAPL",
-            "company_name": "Apple Inc.",
-            "shares": 10,
-            "purchase_price": 210.00,
-            "purchase_date": "2026-07-31"
-        }
-
-        purchase_price is the price paid for this purchase.
-
-        For a new ticker, purchase_price becomes cost_basis.
-
-        If the ticker already exists in the portfolio, the shares
-        and average cost basis are updated.
+        The incoming cost_basis is the price paid per share for the
+        new purchase. When the ticker already exists, cost_basis is
+        recalculated as a weighted average.
         """
 
         required_fields = [
@@ -251,14 +226,15 @@ class DataBaseService:
             "ticker",
             "company_name",
             "shares",
-            "purchase_price",
+            "cost_basis",
             "purchase_date",
         ]
 
         missing_fields = [
             field
             for field in required_fields
-            if field not in holding or holding[field] in (None, "")
+            if field not in holding
+            or holding[field] in (None, "")
         ]
 
         if missing_fields:
@@ -269,13 +245,15 @@ class DataBaseService:
 
         try:
             shares_bought = Decimal(str(holding["shares"]))
-            purchase_price = Decimal(
-                str(holding["purchase_price"])
-            )
+            cost_basis = Decimal(str(holding["cost_basis"]))
 
-        except (InvalidOperation, TypeError, ValueError) as exc:
+        except (
+            InvalidOperation,
+            TypeError,
+            ValueError,
+        ) as exc:
             raise ValueError(
-                "shares and purchase_price must be valid numbers."
+                "shares and cost_basis must be valid numbers."
             ) from exc
 
         if shares_bought <= 0:
@@ -283,9 +261,9 @@ class DataBaseService:
                 "shares must be greater than zero."
             )
 
-        if purchase_price < 0:
+        if cost_basis < 0:
             raise ValueError(
-                "purchase_price cannot be negative."
+                "cost_basis cannot be negative."
             )
 
         portfolio_id = holding["portfolio_id"]
@@ -294,10 +272,37 @@ class DataBaseService:
         company_name = holding["company_name"].strip()
         purchase_date = holding["purchase_date"]
 
+        purchase_total = shares_bought * cost_basis
+
         cursor = self.db.cursor(dictionary=True)
 
         try:
-            # Check whether the portfolio already owns this ticker.
+            cursor.execute(
+                """
+                SELECT
+                    portfolio_id,
+                    cash_balance
+                FROM portfolio
+                WHERE portfolio_id = %s
+                FOR UPDATE;
+                """,
+                (portfolio_id,),
+            )
+
+            portfolio = cursor.fetchone()
+
+            if portfolio is None:
+                raise ValueError("Portfolio not found.")
+
+            cash_balance = Decimal(
+                str(portfolio["cash_balance"] or 0)
+            )
+
+            if purchase_total > cash_balance:
+                raise ValueError(
+                    "Insufficient cash balance."
+                )
+
             cursor.execute(
                 """
                 SELECT
@@ -317,28 +322,7 @@ class DataBaseService:
             )
 
             existing_holding = cursor.fetchone()
-            
-            purchase_total = shares_bought * purchase_price
-            
-            cursor.execute(
-                """
-                update portfolio
-                set cash_balance = cash_balance - %s
-                where portfolio_id = %s
-                    and cash_balance >= %s;
-                """,
-                (
-                    purchase_total,
-                    portfolio_id,
-                    purchase_total
-                ),
-            )
-            if cursor.rowcount == 0:
-                raise ValueError(
-                    "Portfolio not found or insufficient cash balance."
-            )
 
-            # Update the existing row when the ticker already exists.
             if existing_holding:
                 old_shares = Decimal(
                     str(existing_holding["shares"])
@@ -352,11 +336,9 @@ class DataBaseService:
                     old_shares + shares_bought
                 )
 
-                # Weighted-average cost basis.
-                # No Python round() or quantize() is used.
                 new_average_cost = (
                     (old_shares * old_cost_basis)
-                    + (shares_bought * purchase_price)
+                    + (shares_bought * cost_basis)
                 ) / new_total_shares
 
                 cursor.execute(
@@ -377,61 +359,77 @@ class DataBaseService:
                         existing_holding["holding_id"],
                     ),
                 )
-                
-                
-                self.db.commit()
 
-                return {
-                    "action": "updated",
-                    "holding_id": existing_holding["holding_id"],
-                    "portfolio_id": portfolio_id,
-                    "asset_id": asset_id,
-                    "ticker": ticker,
-                    "company_name": company_name,
-                    "shares": float(new_total_shares),
-                    "cost_basis": float(new_average_cost),
-                    "purchase_date": str(
-                        existing_holding["purchase_date"]
+                action = "updated"
+                holding_id = existing_holding["holding_id"]
+                final_shares = new_total_shares
+                final_cost_basis = new_average_cost
+                final_purchase_date = existing_holding[
+                    "purchase_date"
+                ]
+
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO holdings (
+                        portfolio_id,
+                        asset_id,
+                        ticker,
+                        company_name,
+                        shares,
+                        cost_basis,
+                        purchase_date
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                    """,
+                    (
+                        portfolio_id,
+                        asset_id,
+                        ticker,
+                        company_name,
+                        shares_bought,
+                        cost_basis,
+                        purchase_date,
                     ),
-                }
+                )
 
-            # Insert a new row when the ticker does not exist.
+                action = "created"
+                holding_id = cursor.lastrowid
+                final_shares = shares_bought
+                final_cost_basis = cost_basis
+                final_purchase_date = purchase_date
+
             cursor.execute(
                 """
-                INSERT INTO holdings (
-                    portfolio_id,
-                    asset_id,
-                    ticker,
-                    company_name,
-                    shares,
-                    cost_basis,
-                    purchase_date
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s);
+                UPDATE portfolio
+                SET cash_balance = cash_balance - %s
+                WHERE portfolio_id = %s;
                 """,
                 (
+                    purchase_total,
                     portfolio_id,
-                    asset_id,
-                    ticker,
-                    company_name,
-                    shares_bought,
-                    purchase_price,
-                    purchase_date,
                 ),
             )
+
+            if cursor.rowcount == 0:
+                raise ValueError("Portfolio not found.")
 
             self.db.commit()
 
             return {
-                "action": "created",
-                "holding_id": cursor.lastrowid,
+                "action": action,
+                "holding_id": holding_id,
                 "portfolio_id": portfolio_id,
                 "asset_id": asset_id,
                 "ticker": ticker,
                 "company_name": company_name,
-                "shares": float(shares_bought),
-                "cost_basis": float(purchase_price),
-                "purchase_date": str(purchase_date),
+                "shares": float(final_shares),
+                "cost_basis": float(final_cost_basis),
+                "purchase_date": str(final_purchase_date),
+                "purchase_total": float(purchase_total),
+                "cash_remaining": float(
+                    cash_balance - purchase_total
+                ),
             }
 
         except Exception:
@@ -440,8 +438,7 @@ class DataBaseService:
 
         finally:
             cursor.close()
-            
-    # Remove Holding Method
+
     def remove_shares(
         self,
         portfolio_id,
@@ -450,17 +447,25 @@ class DataBaseService:
         sale_price,
     ):
         try:
-            shares_to_remove = Decimal(str(shares_to_remove))
+            shares_to_remove = Decimal(
+                str(shares_to_remove)
+            )
+
             sale_price = Decimal(str(sale_price))
 
-        except (InvalidOperation, TypeError, ValueError) as exc:
+        except (
+            InvalidOperation,
+            TypeError,
+            ValueError,
+        ) as exc:
             raise ValueError(
-                "Shares to remove and sale price must be valid numbers."
+                "Shares to remove and sale price "
+                "must be valid numbers."
             ) from exc
 
         if shares_to_remove <= 0:
             raise ValueError(
-            "Shares to remove must be greater than zero."
+                "Shares to remove must be greater than zero."
             )
 
         if sale_price < 0:
@@ -480,28 +485,40 @@ class DataBaseService:
                     cost_basis
                 FROM holdings
                 WHERE portfolio_id = %s
-                AND ticker = %s
+                  AND ticker = %s
                 FOR UPDATE;
                 """,
-                (portfolio_id, ticker),
+                (
+                    portfolio_id,
+                    ticker,
+                ),
             )
 
             holding = cursor.fetchone()
 
             if holding is None:
                 raise ValueError(
-                    f"{ticker} is not currently in this portfolio."
+                    f"{ticker} is not currently "
+                    "in this portfolio."
                 )
 
-            current_shares = Decimal(str(holding["shares"]))
+            current_shares = Decimal(
+                str(holding["shares"])
+            )
 
             if shares_to_remove > current_shares:
                 raise ValueError(
-                    "Cannot remove more shares than are currently owned."
+                    "Cannot remove more shares "
+                    "than are currently owned."
                 )
 
-            remaining_shares = current_shares - shares_to_remove
-            sale_total = shares_to_remove * sale_price
+            remaining_shares = (
+                current_shares - shares_to_remove
+            )
+
+            sale_total = (
+                shares_to_remove * sale_price
+            )
 
             if remaining_shares == 0:
                 cursor.execute(
@@ -549,11 +566,17 @@ class DataBaseService:
             return {
                 "action": action,
                 "ticker": ticker,
-                "shares_removed": float(shares_to_remove),
-                "remaining_shares": float(remaining_shares),
+                "shares_removed": float(
+                    shares_to_remove
+                ),
+                "remaining_shares": float(
+                    remaining_shares
+                ),
                 "sale_price": float(sale_price),
                 "sale_total": float(sale_total),
-                "cost_basis": float(holding["cost_basis"]),
+                "cost_basis": float(
+                    holding["cost_basis"]
+                ),
             }
 
         except Exception:
@@ -563,7 +586,31 @@ class DataBaseService:
         finally:
             cursor.close()
 
-    # Portfolio Update Method
+    def add_asset(self, asset_type):
+        cursor = self.db.cursor()
+
+        try:
+            cursor.execute(
+                """
+                INSERT INTO asset (asset_type)
+                VALUES (%s);
+                """,
+                (asset_type,),
+            )
+
+            self.db.commit()
+
+            return {
+                "asset_id": cursor.lastrowid,
+                "asset_type": asset_type,
+            }
+
+        except Exception:
+            self.db.rollback()
+            raise
+
+        finally:
+            cursor.close()
 
     def update_portfolio(self, portfolio):
         cursor = self.db.cursor()
@@ -584,7 +631,6 @@ class DataBaseService:
                 ),
             )
 
-            # created_at is intentionally not changed.
             self.db.commit()
 
             return cursor.rowcount > 0
@@ -596,15 +642,7 @@ class DataBaseService:
         finally:
             cursor.close()
 
-    # Holding Update Method
-
     def update_holding(self, holding):
-        """
-        Directly edit an existing holding.
-
-        Use add_holding() when buying more shares so that the
-        average cost basis is calculated automatically.
-        """
         cursor = self.db.cursor()
 
         try:
@@ -625,7 +663,7 @@ class DataBaseService:
                     holding["portfolio_id"],
                     holding["asset_id"],
                     holding["ticker"].strip().upper(),
-                    holding["company_name"],
+                    holding["company_name"].strip(),
                     holding["shares"],
                     holding["cost_basis"],
                     holding["purchase_date"],
@@ -643,8 +681,6 @@ class DataBaseService:
 
         finally:
             cursor.close()
-
-    # Delete Methods
 
     def delete_portfolio_by_id(self, portfolio_id):
         cursor = self.db.cursor()
@@ -716,77 +752,181 @@ class DataBaseService:
             cursor.close()
 
     def get_portfolio_summary(self, portfolio_id):
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True, buffered=True)
+        """
+        Build the live dashboard summary using stored holdings and
+        Yahoo Finance prices.
+
+        The database supplies ticker, shares, cost basis and asset
+        type. Yahoo Finance supplies current price and previous close.
+        """
+
+        cursor = self.db.cursor(
+            dictionary=True,
+            buffered=True,
+        )
+
         try:
             cursor.execute(
-                "SELECT cash_balance FROM portfolio WHERE portfolio_id = %s;",
+                """
+                SELECT cash_balance
+                FROM portfolio
+                WHERE portfolio_id = %s;
+                """,
                 (portfolio_id,),
             )
+
             portfolio = cursor.fetchone()
-            if not portfolio:
+
+            if portfolio is None:
                 return None
 
-            cash_balance = float(portfolio["cash_balance"] or 0)
             cursor.execute(
-                "SELECT h.shares, h.cost_basis, h.ticker, a.asset_type "
-                "FROM holdings h "
-                "JOIN asset a ON h.asset_id = a.asset_id "
-                "WHERE h.portfolio_id = %s;",
+                """
+                SELECT
+                    h.ticker,
+                    h.shares,
+                    h.cost_basis,
+                    a.asset_type
+                FROM holdings AS h
+                INNER JOIN asset AS a
+                    ON h.asset_id = a.asset_id
+                WHERE h.portfolio_id = %s;
+                """,
                 (portfolio_id,),
             )
+
             holdings = cursor.fetchall()
 
-            totals = {
-                "Stocks": 0.0,
-                "Bonds": 0.0,
-                "Crypto": 0.0,
-                "Cash": cash_balance,
-            }
-            total_holdings_value = 0.0
-            total_return = 0.0
-            total_cost_basis = 0.0
+            cash_balance = Decimal(
+                str(portfolio["cash_balance"] or 0)
+            )
+
+            stocks_value = Decimal("0.00")
+            bonds_value = Decimal("0.00")
+            crypto_value = Decimal("0.00")
+
+            total_cost_basis = Decimal("0.00")
+            total_return = Decimal("0.00")
+            day_gain = Decimal("0.00")
+            previous_holdings_value = Decimal("0.00")
 
             for holding in holdings:
-                shares = float(holding["shares"] or 0)
-                cost_basis = float(holding["cost_basis"] or 0)
-                asset_type = holding["asset_type"] or "Stock"
                 ticker = holding["ticker"]
 
-                current_price = 0.0
-                market_value = 0.0
-                profit_loss = 0.0
-                if ticker:
-                    info = get_info(ticker)
-                    current_price = float(
-                        info.get("currentPrice")
-                        or info.get("regularMarketPrice")
-                        or 0
-                    )
-                    market_value = shares * current_price
-                    profit_loss = market_value - (shares * cost_basis)
-
-                label = (
-                    "Stocks" if asset_type == "Stock" else
-                    "Bonds" if asset_type == "Bond" else
-                    "Crypto" if asset_type == "Crypto" else
-                    "Cash"
+                shares = Decimal(
+                    str(holding["shares"] or 0)
                 )
 
-                totals[label] = totals.get(label, 0.0) + market_value
-                total_holdings_value += market_value
+                cost_basis = Decimal(
+                    str(holding["cost_basis"] or 0)
+                )
+
+                asset_type = (
+                    holding["asset_type"] or "Stock"
+                )
+
+                info = get_info(ticker) or {}
+
+                current_price_value = (
+                    info.get("currentPrice")
+                    or info.get("regularMarketPrice")
+                    or info.get("navPrice")
+                    or 0
+                )
+
+                previous_close_value = (
+                    info.get("previousClose")
+                    or info.get(
+                        "regularMarketPreviousClose"
+                    )
+                    or current_price_value
+                    or 0
+                )
+
+                current_price = Decimal(
+                    str(current_price_value)
+                )
+
+                previous_close = Decimal(
+                    str(previous_close_value)
+                )
+
+                market_value = (
+                    shares * current_price
+                )
+
+                holding_cost = (
+                    shares * cost_basis
+                )
+
+                profit_loss = (
+                    market_value - holding_cost
+                )
+
+                holding_day_gain = (
+                    current_price - previous_close
+                ) * shares
+
+                previous_market_value = (
+                    previous_close * shares
+                )
+
+                if asset_type == "Stock":
+                    stocks_value += market_value
+
+                elif asset_type == "Bond":
+                    bonds_value += market_value
+
+                elif asset_type == "Crypto":
+                    crypto_value += market_value
+
+                total_cost_basis += holding_cost
                 total_return += profit_loss
-                total_cost_basis += cost_basis * shares
+                day_gain += holding_day_gain
+                previous_holdings_value += (
+                    previous_market_value
+                )
+
+            total_value = (
+                stocks_value
+                + bonds_value
+                + crypto_value
+                + cash_balance
+            )
+
+            total_return_percent = Decimal("0.00")
+
+            if total_cost_basis > 0:
+                total_return_percent = (
+                    total_return / total_cost_basis
+                ) * Decimal("100")
+
+            day_gain_percent = Decimal("0.00")
+
+            if previous_holdings_value > 0:
+                day_gain_percent = (
+                    day_gain
+                    / previous_holdings_value
+                ) * Decimal("100")
 
             return {
-                "cash_balance": cash_balance,
-                "total_value": total_holdings_value + cash_balance,
-                "total_return": total_return,
-                "cost_basis_total": total_cost_basis,
-                "stocks_value": totals["Stocks"],
-                "bonds_value": totals["Bonds"],
-                "crypto_value": totals["Crypto"],
+                "cash_balance": float(cash_balance),
+                "stocks_value": float(stocks_value),
+                "bonds_value": float(bonds_value),
+                "crypto_value": float(crypto_value),
+                "total_value": float(total_value),
+                "total_return": float(total_return),
+                "total_return_percent": float(
+                    total_return_percent
+                ),
+                "day_gain": float(day_gain),
+                "day_gain_percent": float(
+                    day_gain_percent
+                ),
+                "cost_basis_total": float(
+                    total_cost_basis
+                ),
             }
+
         finally:
             cursor.close()
-            db.close()
