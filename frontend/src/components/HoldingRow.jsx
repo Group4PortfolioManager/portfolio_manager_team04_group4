@@ -1,21 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getHolding, getStock } from "../services/api";
-// import SellHoldingModal from "./SellHoldingModal";
 
 function HoldingRow({ holding, holdingId }) {
-  const [data, setData] = useState(holding || null);
+  const [fetchedData, setFetchedData] = useState(null);
+  const [livePrice, setLivePrice] = useState(null);
   const [loading, setLoading] = useState(!holding && !!holdingId);
-  // const [isSellOpen, setIsSellOpen] = useState(false);
-  // const [sellError, setSellError] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
     if (holdingId && !holding) {
-      setLoading(true);
       getHolding(holdingId).then((result) => {
         if (isMounted) {
           const fetched = Array.isArray(result.data) ? result.data[0] : result.data;
-          setData(fetched);
+          setFetchedData(fetched);
           setLoading(false);
         }
       });
@@ -25,32 +22,26 @@ function HoldingRow({ holding, holdingId }) {
     };
   }, [holdingId, holding]);
 
+  const data = useMemo(() => holding || fetchedData || null, [holding, fetchedData]);
+
   useEffect(() => {
-    // When we have basic holding data, fetch live price and compute derived values
+    if (!data || !data.ticker) return;
     let isMounted = true;
-    async function enrichWithLivePrice(base) {
-      if (!base || !base.ticker) return;
-      try {
-        const res = await getStock(base.ticker);
-        const info = res && res.data ? res.data : {};
-        const livePrice = info.price ?? base.current_price ?? 0;
-        const shares = parseFloat(base.shares) || 0;
-        const market_value = +(shares * livePrice).toFixed(2);
-        const cost_basis = parseFloat(base.cost_basis) || 0;
-        const profit_loss = +(market_value - cost_basis * shares).toFixed(2);
+    getStock(data.ticker)
+      .then((result) => {
         if (isMounted) {
-          setData({ ...base, current_price: livePrice, market_value, profit_loss });
+          const stockData = result?.data || {};
+          const fetchedPrice = parseFloat(stockData.price);
+          if (!Number.isNaN(fetchedPrice)) {
+            setLivePrice(fetchedPrice);
+          } else {
+            setLivePrice(null);
+          }
         }
-      } catch (err) {
-        // ignore live-price failure and keep existing values
-        if (isMounted) setData(base);
-      }
-    }
-
-    if (data) {
-      enrichWithLivePrice(data);
-    }
-
+      })
+      .catch(() => {
+        if (isMounted) setLivePrice(null);
+      });
     return () => {
       isMounted = false;
     };
@@ -64,11 +55,11 @@ function HoldingRow({ holding, holdingId }) {
     );
   }
 
+  const currentPrice = Number(livePrice ?? data.current_price ?? 0);
   const shares = Number(data.shares) || 0;
   const costBasis = Number(data.cost_basis) || 0;
-  const currentPrice = Number(data.current_price) || 0;
-  const marketValue = Number(data.market_value) || 0;
-  const profitLoss = Number(data.profit_loss) || 0;
+  const marketValue = +(shares * currentPrice).toFixed(2);
+  const profitLoss = +(marketValue - costBasis * shares).toFixed(2);
   const totalCost = costBasis * shares;
   const profitLossPct = totalCost !== 0 ? (profitLoss / totalCost) * 100 : 0;
 

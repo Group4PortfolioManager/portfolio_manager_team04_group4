@@ -4,11 +4,13 @@ import PerformanceChart from "../components/PerformanceChart";
 import HoldingsTable from "../components/HoldingsTable";
 import StatTile from "../components/StatTile";
 import { getPortfolio } from "../services/api";
+import { useDataRefresh } from "../services/refreshStore";
 
 function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const refreshKey = useDataRefresh();
 
   useEffect(() => {
     getPortfolio(1)
@@ -24,7 +26,7 @@ function Dashboard() {
         setError(err.message);
         setLoading(false);
       });
-  }, []);
+  }, [refreshKey]);
 
   const holdingsSummary = [
     { label: "Stocks Value", value: summary?.stocks_value ?? 0 },

@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
 from app.config import Config
 from app.routes.api_routes import api_bp
 from scripts.init_db import start_database
@@ -23,6 +24,16 @@ CORS(app)
 @app.route('/')
 def index():
     return {'message': 'Welcome to the Portfolio Manager API'}
+
+
+@app.errorhandler(HTTPException)
+def handle_http_error(exc):
+    return {'error': exc.description}, exc.code
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(exc):
+    return {'error': f'Internal server error: {exc}'}, 500
 
 app.register_blueprint(api_bp)
 
