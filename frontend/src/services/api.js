@@ -52,6 +52,12 @@ async function getHoldings(portfolioId) {
   return fetchJson(`${API_BASE_URL}/portfolios/${portfolioId}/holdings`);
 }
 
+async function getPortfolioPerformance(portfolioId, windowType = 'months', windowSize = 12) {
+  return fetchJson(
+    `${API_BASE_URL}/portfolios/${portfolioId}/performance?window_type=${windowType}&window_size=${windowSize}`
+  );
+}
+
 async function getHolding(holdingId) {
   return fetchJson(`${API_BASE_URL}/holdings/${holdingId}`);
 }
@@ -94,6 +100,7 @@ async function sellHolding(portfolioId, ticker, shares, price) {
 export {
   fetchJson,
   getPortfolio,
+  getPortfolioPerformance,
   getHoldings,
   getHolding,
   getAssets,

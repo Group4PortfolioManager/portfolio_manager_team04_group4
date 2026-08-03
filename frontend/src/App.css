@@ -260,6 +260,40 @@ h2 {
   margin: 0;
 }
 
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.window-toggle {
+  display: inline-flex;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.window-toggle-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.window-toggle-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.window-toggle-btn.active {
+  color: var(--text);
+  background: var(--accent-dim);
+}
+
 .change-badge {
   font-family: var(--mono);
   font-size: 13px;
