@@ -72,6 +72,37 @@ def get_portfolio_holdings(portfolio_id):
 
 
 @api_bp.route(
+    "/portfolios/<int:portfolio_id>/performance",
+    methods=["GET"],
+)
+def get_portfolio_performance(portfolio_id):
+    window_type = request.args.get("window_type", default="months", type=str).lower()
+    window_size = request.args.get("window_size", default=12, type=int)
+
+    if window_type not in ("months", "days"):
+        return {"error": "window_type must be 'months' or 'days'"}, 400
+
+    if window_size is None or window_size < 2:
+        return {"error": "window_size must be at least 2"}, 400
+
+    history = get_portfolio_performance_history(
+        portfolio_id,
+        window_type=window_type,
+        window_size=window_size,
+    )
+
+    if history is None:
+        return {"error": "Portfolio not found"}, 404
+
+    return {
+        "portfolio_id": portfolio_id,
+        "window_type": window_type,
+        "window_size": window_size,
+        "history": history,
+    }, 200
+
+
+@api_bp.route(
     "/holdings/<int:holding_id>",
     methods=["GET"],
 )
