@@ -12,6 +12,12 @@ const ASSET_TYPE_LABELS = {
 };
 import { useDataRefresh } from "../services/refreshStore";
 
+const ASSET_TYPE_LABELS = {
+  Stock: "stocks_value",
+  Bond: "bonds_value",
+  Crypto: "crypto_value",
+};
+
 function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
