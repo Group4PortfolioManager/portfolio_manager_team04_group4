@@ -74,26 +74,25 @@ async function getStock(ticker) {
   return fetchJson(`${API_BASE_URL}/stocks/${ticker}`);
 }
 
-async function buyHolding(portfolioId, ticker, shares, price, purchaseDate = new Date().toISOString().split('T')[0]) {
+async function buyHolding(portfolioId, ticker, shares, costBasis, purchaseDate = new Date().toISOString().split('T')[0]) {
   return fetchWithJsonFallback(`${API_BASE_URL}/portfolios/${portfolioId}/buy`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      asset_id: null,
       ticker,
       company_name: ticker,
       shares,
-      price,
-      purchase_date: purchaseDate
+      cost_basis: costBasis,
+      purchase_date: purchaseDate,
     })
   });
 }
 
-async function sellHolding(portfolioId, ticker, shares, price) {
+async function sellHolding(portfolioId, ticker, shares, salePrice) {
   return fetchWithJsonFallback(`${API_BASE_URL}/portfolios/${portfolioId}/sell`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ticker, shares, price })
+    body: JSON.stringify({ ticker, shares, sale_price: salePrice })
   });
 }
 

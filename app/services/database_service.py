@@ -586,6 +586,39 @@ class DataBaseService:
         finally:
             cursor.close()
 
+    def get_asset_by_type(self, asset_type):
+        cursor = self.db.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT asset_id
+                FROM asset
+                WHERE asset_type = %s;
+                """,
+                (asset_type,),
+            )
+
+            result = cursor.fetchone()
+
+            if result is None:
+                cursor.execute(
+                    """
+                    INSERT INTO asset (asset_type)
+                    VALUES (%s);
+                    """,
+                    (asset_type,),
+                )
+
+                self.db.commit()
+
+                return cursor.lastrowid
+
+            return result["asset_id"]
+
+        finally:
+            cursor.close()
+
     def add_asset(self, asset_type):
         cursor = self.db.cursor()
 
@@ -825,7 +858,10 @@ class DataBaseService:
                     holding["asset_type"] or "Stock"
                 )
 
-                info = get_info(ticker) or {}
+                try:
+                    info = get_info(ticker) or {}
+                except Exception:
+                    info = {}
 
                 current_price_value = (
                     info.get("currentPrice")

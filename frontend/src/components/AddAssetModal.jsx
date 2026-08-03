@@ -20,7 +20,7 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
     await onSubmit({
       ticker: ticker.toUpperCase(),
       shares: sharesValue,
-      price: priceValue,
+      costBasis: priceValue,
     });
   };
 
