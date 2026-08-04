@@ -9,7 +9,6 @@ import {
   ResponsiveContainer
 } from "recharts";
 import { getPortfolioPerformance } from "../services/api";
-import { useDataRefresh } from "../services/refreshStore";
 
 const WINDOW_PRESETS = {
   yearly: {
@@ -43,7 +42,6 @@ function PerformanceChart({ height = 220, portfolioId = 1 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [windowPreset, setWindowPreset] = useState("yearly");
-  const refreshKey = useDataRefresh();
   const activeWindow = WINDOW_PRESETS[windowPreset];
 
   useEffect(() => {
@@ -83,7 +81,7 @@ function PerformanceChart({ height = 220, portfolioId = 1 }) {
     return () => {
       isMounted = false;
     };
-  }, [portfolioId, windowPreset, refreshKey, activeWindow.windowSize, activeWindow.windowType]);
+  }, [portfolioId, windowPreset, activeWindow.windowSize, activeWindow.windowType]);
 
   const firstValue = performanceHistory[0]?.value ?? 0;
   const lastValue = performanceHistory[performanceHistory.length - 1]?.value ?? 0;

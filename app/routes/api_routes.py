@@ -494,3 +494,77 @@ def sell_holding(portfolio_id):
             "error": "Unable to sell holding",
             "details": str(error),
         }, 500
+
+
+@api_bp.route(
+    "/portfolios/<int:portfolio_id>/cash/deposit",
+    methods=["POST"],
+)
+def deposit_cash(portfolio_id):
+    data = request.get_json(silent=True) or {}
+    amount = data.get("amount")
+
+    if amount is None:
+        return {
+            "error": "amount is required"
+        }, 400
+
+    try:
+        result = database_service.deposit_cash(
+            portfolio_id,
+            amount,
+        )
+
+        database_service.upsert_portfolio_snapshot(
+            portfolio_id
+        )
+
+        return result, 200
+
+    except ValueError as error:
+        return {"error": str(error)}, 400
+
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to deposit cash",
+            "details": str(error),
+        }, 500
+
+
+@api_bp.route(
+    "/portfolios/<int:portfolio_id>/cash/withdraw",
+    methods=["POST"],
+)
+def withdraw_cash(portfolio_id):
+    data = request.get_json(silent=True) or {}
+    amount = data.get("amount")
+
+    if amount is None:
+        return {
+            "error": "amount is required"
+        }, 400
+
+    try:
+        result = database_service.withdraw_cash(
+            portfolio_id,
+            amount,
+        )
+
+        database_service.upsert_portfolio_snapshot(
+            portfolio_id
+        )
+
+        return result, 200
+
+    except ValueError as error:
+        return {"error": str(error)}, 400
+
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to withdraw cash",
+            "details": str(error),
+        }, 500
