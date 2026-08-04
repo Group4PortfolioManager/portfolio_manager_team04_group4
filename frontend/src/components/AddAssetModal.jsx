@@ -140,6 +140,14 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
     onClose();
   };
 
+  const handleAssetTypeChange = (event) => {
+    setAssetId(Number(event.target.value));
+    setTicker("");
+    setLivePrice(null);
+    setPriceLoading(false);
+    setError(null);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError(null);
@@ -210,11 +218,7 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
             <select
               id="assetType"
               value={assetId}
-              onChange={(event) =>
-                setAssetId(
-                  Number(event.target.value)
-                )
-              }
+              onChange={handleAssetTypeChange}
             >
               <option value={1}>Stock</option>
               <option value={2}>Bond</option>
