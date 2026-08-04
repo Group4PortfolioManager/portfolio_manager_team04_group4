@@ -1,14 +1,28 @@
 import { useEffect, useState } from "react";
-import { getHoldings, getStock, sellHolding } from "../services/api";
+import {
+  getHoldings,
+  getStock,
+  sellHolding,
+} from "../services/api";
 
-function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
+function RemoveAssetModal({
+  isOpen,
+  onClose,
+  onSubmit,
+}) {
   const [holdings, setHoldings] = useState([]);
-  const [selectedTicker, setSelectedTicker] = useState("");
-  const [sharesToSell, setSharesToSell] = useState("");
-  const [livePrice, setLivePrice] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [priceLoading, setPriceLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [selectedTicker, setSelectedTicker] =
+    useState("");
+  const [sharesToSell, setSharesToSell] =
+    useState("");
+  const [livePrice, setLivePrice] =
+    useState(null);
+  const [loading, setLoading] =
+    useState(true);
+  const [priceLoading, setPriceLoading] =
+    useState(false);
+  const [error, setError] =
+    useState(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -23,26 +37,34 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
       .then((result) => {
         if (!result.response.ok) {
           throw new Error(
-            result.data?.error || "Failed to load holdings."
+            result.data?.error ||
+              "Failed to load holdings."
           );
         }
 
-        const holdingsData = Array.isArray(result.data)
+        const holdingsData = Array.isArray(
+          result.data
+        )
           ? result.data
           : [];
 
         setHoldings(holdingsData);
 
         if (holdingsData.length > 0) {
-          setSelectedTicker(holdingsData[0].ticker);
-          setSharesToSell(holdingsData[0].shares.toString());
+          setSelectedTicker(
+            holdingsData[0].ticker
+          );
+          setSharesToSell("");
         } else {
           setSelectedTicker("");
           setSharesToSell("");
         }
       })
       .catch((err) => {
-        setError(err.message || "Failed to load holdings.");
+        setError(
+          err.message ||
+            "Failed to load holdings."
+        );
       })
       .finally(() => {
         setLoading(false);
@@ -50,19 +72,23 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
   }, [isOpen]);
 
   useEffect(() => {
-    if (!selectedTicker || holdings.length === 0) {
+    if (
+      !selectedTicker ||
+      holdings.length === 0
+    ) {
       return;
     }
 
     const selectedHolding = holdings.find(
-      (holding) => holding.ticker === selectedTicker
+      (holding) =>
+        holding.ticker === selectedTicker
     );
 
     if (!selectedHolding) {
       return;
     }
 
-    setSharesToSell(selectedHolding.shares.toString());
+    setSharesToSell("");
     setLivePrice(null);
     setPriceLoading(true);
     setError(null);
@@ -71,21 +97,31 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
       .then((result) => {
         if (!result.response.ok) {
           throw new Error(
-            result.data?.error || "Unable to load current price."
+            result.data?.error ||
+              "Unable to load current price."
           );
         }
 
-        const fetchedPrice = Number.parseFloat(result.data?.price);
+        const fetchedPrice =
+          Number.parseFloat(
+            result.data?.price
+          );
 
-        if (Number.isNaN(fetchedPrice) || fetchedPrice <= 0) {
-          throw new Error("A valid current price was not returned.");
+        if (
+          Number.isNaN(fetchedPrice) ||
+          fetchedPrice <= 0
+        ) {
+          throw new Error(
+            "A valid current price was not returned."
+          );
         }
 
         setLivePrice(fetchedPrice);
       })
       .catch((err) => {
         setError(
-          err.message || "Unable to load the current market price."
+          err.message ||
+            "Unable to load the current market price."
         );
       })
       .finally(() => {
@@ -98,15 +134,20 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
   }
 
   const selectedHolding = holdings.find(
-    (holding) => holding.ticker === selectedTicker
+    (holding) =>
+      holding.ticker === selectedTicker
   );
 
   const selectedShares = selectedHolding
-    ? Number.parseFloat(selectedHolding.shares) || 0
+    ? Number.parseFloat(
+        selectedHolding.shares
+      ) || 0
     : 0;
 
   const selectedCostBasis = selectedHolding
-    ? Number.parseFloat(selectedHolding.cost_basis) || 0
+    ? Number.parseFloat(
+        selectedHolding.cost_basis
+      ) || 0
     : 0;
 
   const sellSharesValue =
@@ -139,6 +180,16 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
   const isNoHoldings =
     !loading && holdings.length === 0;
 
+  const formatMoney = (value) =>
+    Number(value).toLocaleString("en-US", {
+      maximumFractionDigits: 2,
+    });
+
+  const formatShares = (value) =>
+    Number(value).toLocaleString("en-US", {
+      maximumFractionDigits: 4,
+    });
+
   const handleClose = () => {
     setHoldings([]);
     setSelectedTicker("");
@@ -153,7 +204,9 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
     setError(null);
 
     if (!selectedHolding) {
-      setError("Please select a ticker.");
+      setError(
+        "Please select a ticker."
+      );
       return;
     }
 
@@ -165,7 +218,9 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
       sharesValue <= 0 ||
       sharesValue > selectedShares
     ) {
-      setError("Enter a valid quantity to sell.");
+      setError(
+        "Enter a valid quantity to sell."
+      );
       return;
     }
 
@@ -178,7 +233,10 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
 
       await onSubmit(result);
     } catch (err) {
-      setError(err.message || "Unable to sell holding.");
+      setError(
+        err.message ||
+          "Unable to sell holding."
+      );
     }
   };
 
@@ -189,7 +247,9 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
     >
       <div
         className="modal"
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
       >
         <div className="modal-header">
           <h3>Remove Asset</h3>
@@ -207,7 +267,9 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
         {loading ? (
           <p>Loading holdings...</p>
         ) : isNoHoldings ? (
-          <p>No holdings available to remove.</p>
+          <p>
+            No holdings available to remove.
+          </p>
         ) : (
           <form
             onSubmit={handleSubmit}
@@ -231,48 +293,70 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
                       }
                       required
                     >
-                      {holdings.map((holding) => (
-                        <option
-                          key={holding.holding_id ?? holding.ticker}
-                          value={holding.ticker}
-                        >
-                          {holding.ticker}
-                        </option>
-                      ))}
+                      {holdings.map(
+                        (holding) => (
+                          <option
+                            key={
+                              holding.holding_id ??
+                              holding.ticker
+                            }
+                            value={
+                              holding.ticker
+                            }
+                          >
+                            {holding.ticker}
+                          </option>
+                        )
+                      )}
                     </select>
                   </div>
 
                   {selectedHolding && (
                     <>
                       <div className="form-group">
-                        <label>Company Name</label>
+                        <label>
+                          Company Name
+                        </label>
+
                         <input
                           type="text"
                           value={
-                            selectedHolding.company_name || ""
+                            selectedHolding.company_name ||
+                            ""
                           }
                           readOnly
                         />
                       </div>
 
                       <div className="form-group">
-                        <label>Owned Shares</label>
+                        <label>
+                          Owned Shares
+                        </label>
+
                         <input
                           type="text"
-                          value={selectedShares}
+                          value={formatShares(
+                            selectedShares
+                          )}
                           readOnly
                         />
                       </div>
 
                       <div className="form-group">
-                        <label>Current Price</label>
+                        <label>
+                          Current Price
+                        </label>
+
                         <input
                           type="text"
                           value={
                             priceLoading
                               ? "Loading..."
-                              : livePrice !== null
-                                ? `$${livePrice.toFixed(2)}`
+                              : livePrice !==
+                                  null
+                                ? `$${formatMoney(
+                                    livePrice
+                                  )}`
                                 : "Unavailable"
                           }
                           readOnly
@@ -280,28 +364,41 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
                       </div>
 
                       <div className="form-group">
-                        <label>Cost Basis</label>
+                        <label>
+                          Cost Basis
+                        </label>
+
                         <input
                           type="text"
-                          value={`$${selectedCostBasis.toFixed(2)}`}
+                          value={`$${formatMoney(
+                            selectedCostBasis
+                          )}`}
                           readOnly
                         />
                       </div>
 
                       <div className="form-group">
-                        <label>Market Value</label>
+                        <label>
+                          Market Value
+                        </label>
+
                         <input
                           type="text"
-                          value={`$${currentMarketValue.toFixed(2)}`}
+                          value={`$${formatMoney(
+                            currentMarketValue
+                          )}`}
                           readOnly
                         />
                       </div>
 
                       <div className="form-group">
                         <label>P/L</label>
+
                         <input
                           type="text"
-                          value={`$${currentProfitLoss.toFixed(2)}`}
+                          value={`$${formatMoney(
+                            currentProfitLoss
+                          )}`}
                           readOnly
                         />
                       </div>
@@ -325,6 +422,7 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
                           event.target.value
                         )
                       }
+                      placeholder="Enter shares"
                       required
                     />
                   </div>
@@ -341,17 +439,23 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
 
                       <input
                         type="text"
-                        value={`$${estimatedSaleProceeds.toFixed(2)}`}
+                        value={`$${formatMoney(
+                          estimatedSaleProceeds
+                        )}`}
                         readOnly
                       />
                     </div>
 
                     <div className="form-group">
-                      <label>Remaining Shares</label>
+                      <label>
+                        Remaining Shares
+                      </label>
 
                       <input
                         type="text"
-                        value={remainingShares.toFixed(4)}
+                        value={formatShares(
+                          remainingShares
+                        )}
                         readOnly
                       />
                     </div>
@@ -363,17 +467,23 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
 
                       <input
                         type="text"
-                        value={`$${remainingMarketValue.toFixed(2)}`}
+                        value={`$${formatMoney(
+                          remainingMarketValue
+                        )}`}
                         readOnly
                       />
                     </div>
 
                     <div className="form-group">
-                      <label>Remaining P/L</label>
+                      <label>
+                        Remaining P/L
+                      </label>
 
                       <input
                         type="text"
-                        value={`$${remainingProfitLoss.toFixed(2)}`}
+                        value={`$${formatMoney(
+                          remainingProfitLoss
+                        )}`}
                         readOnly
                       />
                     </div>
@@ -403,7 +513,10 @@ function RemoveAssetModal({ isOpen, onClose, onSubmit }) {
                 disabled={
                   priceLoading ||
                   livePrice === null ||
-                  !selectedHolding
+                  !selectedHolding ||
+                  sellSharesValue <= 0 ||
+                  sellSharesValue >
+                    selectedShares
                 }
               >
                 Submit
