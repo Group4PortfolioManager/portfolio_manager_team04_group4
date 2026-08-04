@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getAssets } from "../services/api";
+import { getPortfolio, getHoldings, getStock } from "../services/api";
 import { useDataRefresh } from "../services/refreshStore";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
 
@@ -10,23 +10,66 @@ const COLORS = {
   'Cash': '#a78bfa'
 };
 
+
+
 function AssetAllocation() {
-  const [assets, setAssets] = useState([]);
+  const [values, setValues] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const refreshKey = useDataRefresh();
 
   useEffect(() => {
-    getAssets()
-      .then((result) => {
-        const assetsData = Array.isArray(result.data) ? result.data : [];
-        setAssets(assetsData);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
+    let isMounted = true;
+
+    async function loadAllocation() {
+      try {
+        const [portfolioResult, holdingsResult] = await Promise.all([
+          getPortfolio(1),
+          getHoldings(1),
+        ]);
+
+        if (!portfolioResult.response.ok) {
+          throw new Error(portfolioResult.data?.error || "Failed to load portfolio.");
+        }
+
+        const holdings = Array.isArray(holdingsResult.data) ? holdingsResult.data : [];
+        const totals = { Stock: 0, Bond: 0, Crypto: 0, Cash: 0 };
+
+        await Promise.all(
+          holdings.map(async (holding) => {
+            const shares = parseFloat(holding.shares) || 0;
+            let price = 0;
+            try {
+              const stockResult = await getStock(holding.ticker);
+              price = stockResult.data?.price ?? 0;
+            } catch {
+              price = 0;
+            }
+            const marketValue = shares * price;
+            const type = holding.asset_type || "Stock";
+            const label = type === "Stock" ? "Stock" : type === "Bond" ? "Bond" : type === "Crypto" ? "Crypto" : "Cash";
+            totals[label] += marketValue;
+          })
+        );
+
+        totals.Cash = parseFloat(portfolioResult.data?.cash_balance) || 0;
+
+        if (isMounted) {
+          setValues(totals);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err.message);
+          setLoading(false);
+        }
+      }
+    }
+
+    loadAllocation();
+    return () => {
+      isMounted = false;
+    };
   }, [refreshKey]);
 
   if (loading) {
@@ -47,7 +90,9 @@ function AssetAllocation() {
     );
   }
 
-  if (assets.length === 0) {
+  const total = values ? Object.values(values).reduce((sum, value) => sum + value, 0) : 0;
+
+  if (!values || total === 0) {
     return (
       <div className="panel">
         <h2>Asset Allocation</h2>
@@ -56,19 +101,13 @@ function AssetAllocation() {
     );
   }
 
-  const total = assets.length;
-  const allocation = assets.reduce((acc, asset) => {
-    const type = asset.asset_type || 'Stock';
-    const label = type === 'Stock' ? 'Stocks' : type === 'Bond' ? 'Bonds' : type === 'Crypto' ? 'Crypto' : 'Cash';
-    acc[label] = (acc[label] || 0) + 1;
-    return acc;
-  }, {});
-
-  const data = Object.entries(allocation).map(([type, count]) => ({
-    type,
-    percentage: Math.round((count / total) * 100),
-    color: COLORS[type] || '#8891a3'
-  }));
+  const data = Object.entries(values)
+    .filter(([, value]) => value > 0)
+    .map(([type, value]) => ({
+      type,
+      percentage: Math.round((value / total) * 100),
+      color: COLORS[type] || '#8891a3'
+    }));
 
   return (
     <div className="panel">
