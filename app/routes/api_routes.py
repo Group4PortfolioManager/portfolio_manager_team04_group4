@@ -58,6 +58,11 @@ def get_portfolio(portfolio_id):
                 "error": "Portfolio summary not found"
             }, 404
 
+        # Update today's snapshot when portfolio data is loaded.
+        database_service.upsert_portfolio_snapshot(
+            portfolio_id
+        )
+
         return {
             **portfolio,
             **summary,
@@ -408,6 +413,10 @@ def buy_holding(portfolio_id):
             holding
         )
 
+        database_service.upsert_portfolio_snapshot(
+            portfolio_id
+        )
+
         status_code = (
             201
             if trade.get("action") == "created"
@@ -467,6 +476,10 @@ def sell_holding(portfolio_id):
             ticker,
             shares,
             sale_price,
+        )
+
+        database_service.upsert_portfolio_snapshot(
+            portfolio_id
         )
 
         return trade, 200

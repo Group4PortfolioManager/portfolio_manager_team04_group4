@@ -11,17 +11,40 @@ import {
 import { getPortfolioPerformance } from "../services/api";
 import { useDataRefresh } from "../services/refreshStore";
 
-const WINDOW_SIZES = {
-  months: 12,
-  days: 7,
+const WINDOW_PRESETS = {
+  yearly: {
+    windowType: "months",
+    windowSize: 12,
+    labelMode: "months",
+  },
+  monthly: {
+    windowType: "days",
+    windowSize: 30,
+    labelMode: "days",
+  },
+  weekly: {
+    windowType: "days",
+    windowSize: 7,
+    labelMode: "days",
+  },
 };
+
+function shouldShowDayTick(index, totalCount) {
+  if (totalCount <= 10) {
+    return true;
+  }
+
+  const interval = Math.ceil(totalCount / 6);
+  return index % interval === 0 || index === totalCount - 1;
+}
 
 function PerformanceChart({ height = 220, portfolioId = 1 }) {
   const [performanceHistory, setPerformanceHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [windowType, setWindowType] = useState("months");
+  const [windowPreset, setWindowPreset] = useState("yearly");
   const refreshKey = useDataRefresh();
+  const activeWindow = WINDOW_PRESETS[windowPreset];
 
   useEffect(() => {
     let isMounted = true;
@@ -33,8 +56,8 @@ function PerformanceChart({ height = 220, portfolioId = 1 }) {
       try {
         const result = await getPortfolioPerformance(
           portfolioId,
-          windowType,
-          WINDOW_SIZES[windowType]
+          activeWindow.windowType,
+          activeWindow.windowSize
         );
         if (!isMounted) return;
 
@@ -60,7 +83,7 @@ function PerformanceChart({ height = 220, portfolioId = 1 }) {
     return () => {
       isMounted = false;
     };
-  }, [portfolioId, windowType, refreshKey]);
+  }, [portfolioId, windowPreset, refreshKey, activeWindow.windowSize, activeWindow.windowType]);
 
   const firstValue = performanceHistory[0]?.value ?? 0;
   const lastValue = performanceHistory[performanceHistory.length - 1]?.value ?? 0;
@@ -115,15 +138,22 @@ function PerformanceChart({ height = 220, portfolioId = 1 }) {
           <div className="window-toggle" role="group" aria-label="Performance window">
             <button
               type="button"
-              className={`window-toggle-btn ${windowType === "months" ? "active" : ""}`}
-              onClick={() => setWindowType("months")}
+              className={`window-toggle-btn ${windowPreset === "yearly" ? "active" : ""}`}
+              onClick={() => setWindowPreset("yearly")}
             >
               Yearly
             </button>
             <button
               type="button"
-              className={`window-toggle-btn ${windowType === "days" ? "active" : ""}`}
-              onClick={() => setWindowType("days")}
+              className={`window-toggle-btn ${windowPreset === "monthly" ? "active" : ""}`}
+              onClick={() => setWindowPreset("monthly")}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              className={`window-toggle-btn ${windowPreset === "weekly" ? "active" : ""}`}
+              onClick={() => setWindowPreset("weekly")}
             >
               Weekly
             </button>
@@ -147,8 +177,10 @@ function PerformanceChart({ height = 220, portfolioId = 1 }) {
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#232a3a" />
           <XAxis dataKey="label"
             tickFormatter={(value, index) => {
-              if (windowType === "days") {
-                return value;
+              if (activeWindow.labelMode === "days") {
+                return shouldShowDayTick(index, performanceHistory.length)
+                  ? value
+                  : "";
               }
 
               if (index === 0) return value;

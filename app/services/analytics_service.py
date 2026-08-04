@@ -1,8 +1,6 @@
-from bisect import bisect_right
 from datetime import date, datetime, timedelta
 
 from app.services.database_service import DataBaseService
-from app.services.yahoo_service import get_historical_data
 
 
 def _month_end_dates(window_size=12):
@@ -55,41 +53,26 @@ def _format_label(point_date, window_type="months"):
 	return point_date.strftime("%b")
 
 
-def _extract_price_series(frame):
-	"""Return sorted trading dates and close prices from yfinance dataframe."""
-	if frame is None or frame.empty or "Close" not in frame:
-		return [], []
+def _coerce_snapshot_date(value):
+	if isinstance(value, datetime):
+		return value.date()
 
-	dates = []
-	prices = []
-	for idx, row in frame.iterrows():
-		close_value = row.get("Close")
-		if close_value is None:
-			continue
+	if isinstance(value, str):
+		try:
+			return datetime.strptime(
+				value,
+				"%Y-%m-%d",
+			).date()
+		except ValueError:
+			return None
 
-		dates.append(idx.date())
-		prices.append(float(close_value))
-
-	return dates, prices
-
-
-def _latest_price_on_or_before(point_date, trading_dates, trading_prices):
-	if not trading_dates:
-		return None
-
-	position = bisect_right(trading_dates, point_date) - 1
-	if position < 0:
-		return None
-
-	return trading_prices[position]
+	return value
 
 
 def get_portfolio_performance_history(portfolio_id, window_type="months", window_size=12):
 	"""
-	Build a time-window performance curve using:
-	- Current cash balance from portfolio
-	- Holdings from database
-	- Historical close prices from Yahoo by day
+	Build a time-window performance curve from saved
+	daily portfolio snapshots.
 
 	Returns a list of points: [{"date": "YYYY-MM-DD", "label": "Mon", "value": 1234.56}, ...]
 	"""
@@ -99,78 +82,82 @@ def get_portfolio_performance_history(portfolio_id, window_type="months", window
 	if not portfolio:
 		return None
 
-	holdings = db_service.get_portfolio_holdings(portfolio_id) or []
-	cash_balance = float(portfolio.get("cash_balance") or 0)
+	points = _build_points(window_type=window_type, window_size=window_size)
+	start_date = points[0]
+	end_date = points[-1]
 
-	# When there are no holdings, the portfolio value is flat at cash balance.
-	if not holdings:
-		points = _build_points(window_type=window_type, window_size=window_size)
+	# Update today's snapshot before reading the requested window.
+	db_service.upsert_portfolio_snapshot(portfolio_id)
+
+	seed_snapshot = db_service.get_latest_portfolio_snapshot_before(
+		portfolio_id,
+		start_date,
+	)
+
+	snapshots = db_service.get_portfolio_snapshots(
+		portfolio_id,
+		start_date=start_date,
+		end_date=end_date,
+	)
+
+	if not snapshots:
+		summary = db_service.get_portfolio_summary(portfolio_id)
+		fallback_value = float(
+			(summary or {}).get("total_value") or 0
+		)
+
 		return [
 			{
 				"date": point.isoformat(),
 				"label": _format_label(point, window_type=window_type),
-				"value": round(cash_balance, 2),
+				"value": round(fallback_value, 2),
 			}
 			for point in points
 		]
 
-	points = _build_points(window_type=window_type, window_size=window_size)
-	start_date = points[0]
-	end_date = points[-1] + timedelta(days=1)
+	snapshot_values = {}
+	if seed_snapshot:
+		seed_day = _coerce_snapshot_date(
+			seed_snapshot.get("snapshot_date")
+		)
 
-	# Map: ticker -> (trading_dates[], trading_prices[])
-	ticker_price_series = {}
-	for holding in holdings:
-		ticker = (holding.get("ticker") or "").strip().upper()
-		if not ticker:
+		if seed_day is not None:
+			snapshot_values[seed_day] = float(
+				seed_snapshot.get("portfolio_value") or 0
+			)
+
+	for row in snapshots:
+		snapshot_day = _coerce_snapshot_date(
+			row.get("snapshot_date")
+		)
+
+		if snapshot_day is None:
 			continue
 
-		try:
-			frame = get_historical_data(
-				ticker=ticker,
-				start_date=datetime.combine(start_date, datetime.min.time()),
-				end_date=datetime.combine(end_date, datetime.min.time()),
-				interval="1d",
-			)
-		except Exception:
-			frame = None
+		snapshot_values[snapshot_day] = float(
+			row.get("portfolio_value") or 0
+		)
 
-		ticker_price_series[ticker] = _extract_price_series(frame)
+	sorted_snapshot_days = sorted(snapshot_values.keys())
+	latest_value = float(portfolio.get("cash_balance") or 0)
+	day_index = 0
 
 	history = []
 	for point in points:
-		total_value = cash_balance
-
-		for holding in holdings:
-			purchase_date = holding.get("purchase_date")
-			if purchase_date is None:
-				continue
-
-			if isinstance(purchase_date, datetime):
-				purchase_day = purchase_date.date()
-			else:
-				purchase_day = purchase_date
-
-			# Exclude holdings not yet purchased at this point in time.
-			if purchase_day > point:
-				continue
-
-			ticker = (holding.get("ticker") or "").strip().upper()
-			shares = float(holding.get("shares") or 0)
-			cost_basis = float(holding.get("cost_basis") or 0)
-
-			trading_dates, trading_prices = ticker_price_series.get(ticker, ([], []))
-			price = _latest_price_on_or_before(point, trading_dates, trading_prices)
-			if price is None:
-				price = cost_basis
-
-			total_value += shares * price
+		while (
+			day_index < len(sorted_snapshot_days)
+			and sorted_snapshot_days[day_index] <= point
+		):
+			latest_value = snapshot_values[
+				sorted_snapshot_days[day_index]
+			]
+			day_index += 1
 
 		history.append(
 			{
 				"date": point.isoformat(),
 				"label": _format_label(point, window_type=window_type),
-				"value": round(total_value, 2),
+				"value": round(latest_value, 2),
 			}
 		)
 
