@@ -1,18 +1,84 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getStock } from "../services/api";
 
 function AddAssetModal({ isOpen, onClose, onSubmit }) {
   const [assetId, setAssetId] = useState(1);
   const [ticker, setTicker] = useState("");
   const [shares, setShares] = useState("");
+  const [livePrice, setLivePrice] = useState(null);
+  const [priceLoading, setPriceLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const cleanedTicker = ticker.trim().toUpperCase();
+
+    if (!isOpen || !cleanedTicker) {
+      setLivePrice(null);
+      setError(null);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setPriceLoading(true);
+      setError(null);
+
+      getStock(cleanedTicker)
+        .then((result) => {
+          if (!result.response.ok) {
+            throw new Error(
+              result.data?.error ||
+                "Unable to retrieve the current price."
+            );
+          }
+
+          const fetchedPrice = Number.parseFloat(
+            result.data?.price
+          );
+
+          if (
+            Number.isNaN(fetchedPrice) ||
+            fetchedPrice <= 0
+          ) {
+            throw new Error(
+              "A valid current price was not returned."
+            );
+          }
+
+          setLivePrice(fetchedPrice);
+        })
+        .catch((err) => {
+          setLivePrice(null);
+          setError(
+            err.message ||
+              "Unable to retrieve the current price."
+          );
+        })
+        .finally(() => {
+          setPriceLoading(false);
+        });
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [ticker, isOpen]);
 
   if (!isOpen) {
     return null;
   }
 
+  const sharesValue = Number.parseFloat(shares) || 0;
+
+  const totalCost =
+    livePrice !== null
+      ? sharesValue * livePrice
+      : 0;
+
   const resetForm = () => {
     setAssetId(1);
     setTicker("");
     setShares("");
+    setLivePrice(null);
+    setPriceLoading(false);
+    setError(null);
   };
 
   const handleClose = () => {
@@ -22,25 +88,38 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setError(null);
 
-    const sharesValue = Number.parseFloat(shares);
     const cleanedTicker = ticker.trim().toUpperCase();
 
-    if (
-      !cleanedTicker ||
-      Number.isNaN(sharesValue) ||
-      sharesValue <= 0
-    ) {
+    if (!cleanedTicker) {
+      setError("Ticker is required.");
       return;
     }
 
-    await onSubmit({
-      asset_id: assetId,
-      ticker: cleanedTicker,
-      shares: sharesValue,
-    });
+    if (sharesValue <= 0) {
+      setError("Shares must be greater than zero.");
+      return;
+    }
 
-    resetForm();
+    if (livePrice === null) {
+      setError(
+        "A current market price must be available before submitting."
+      );
+      return;
+    }
+
+    try {
+      await onSubmit({
+        asset_id: assetId,
+        ticker: cleanedTicker,
+        shares: sharesValue,
+      });
+
+      resetForm();
+    } catch (err) {
+      setError(err.message || "Unable to add asset.");
+    }
   };
 
   return (
@@ -78,7 +157,9 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
               id="assetType"
               value={assetId}
               onChange={(event) =>
-                setAssetId(Number(event.target.value))
+                setAssetId(
+                  Number(event.target.value)
+                )
               }
             >
               <option value={1}>Stock</option>
@@ -124,6 +205,52 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
             />
           </div>
 
+          <div className="price-preview">
+            <div className="price-preview-card">
+              <span className="price-preview-label">
+                Price Per Share
+              </span>
+
+              <span className="price-preview-value">
+                {priceLoading
+                  ? "Loading..."
+                  : livePrice !== null
+                    ? `$${livePrice.toLocaleString(
+                        "en-US",
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }
+                      )}`
+                    : "—"}
+              </span>
+            </div>
+
+            <div className="price-preview-card">
+              <span className="price-preview-label">
+                Estimated Total Cost
+              </span>
+
+              <span className="price-preview-value">
+                {livePrice !== null
+                  ? `$${totalCost.toLocaleString(
+                      "en-US",
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }
+                    )}`
+                  : "—"}
+              </span>
+            </div>
+          </div>
+
+          {error && (
+            <div className="modal-error">
+              {error}
+            </div>
+          )}
+
           <div className="modal-footer">
             <button
               type="button"
@@ -136,6 +263,11 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
             <button
               type="submit"
               className="btn btn-primary"
+              disabled={
+                priceLoading ||
+                livePrice === null ||
+                sharesValue <= 0
+              }
             >
               Submit
             </button>
