@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import {
-  getHoldings,
-  getStock,
-} from "../services/api";
+import { getHoldings } from "../services/api";
 
 import { useDataRefresh } from "../services/refreshStore";
 import HoldingRow from "./HoldingRow";
@@ -41,69 +38,8 @@ function HoldingsTable({ showLink = false }) {
           ? result.data
           : [];
 
-        const enrichedHoldings = await Promise.all(
-          holdingsData.map(async (holding) => {
-            try {
-              const stockResult = await getStock(
-                holding.ticker
-              );
-
-              if (!stockResult.response.ok) {
-                throw new Error(
-                  stockResult.data?.error ||
-                    "Unable to load current price."
-                );
-              }
-
-              const currentPrice = Number(
-                stockResult.data?.price ?? 0
-              );
-
-              const shares = Number(
-                holding.shares ?? 0
-              );
-
-              const costBasis = Number(
-                holding.cost_basis ?? 0
-              );
-
-              const marketValue =
-                shares * currentPrice;
-
-              const profitLoss =
-                marketValue -
-                shares * costBasis;
-
-              const totalCost =
-                shares * costBasis;
-
-              const profitLossPercent =
-                totalCost > 0
-                  ? (profitLoss / totalCost) * 100
-                  : 0;
-
-              return {
-                ...holding,
-                current_price: currentPrice,
-                market_value: marketValue,
-                profit_loss: profitLoss,
-                profit_loss_percent:
-                  profitLossPercent,
-              };
-            } catch {
-              return {
-                ...holding,
-                current_price: 0,
-                market_value: 0,
-                profit_loss: 0,
-                profit_loss_percent: 0,
-              };
-            }
-          })
-        );
-
         if (isActive) {
-          setHoldings(enrichedHoldings);
+          setHoldings(holdingsData);
         }
       } catch (err) {
         if (isActive) {

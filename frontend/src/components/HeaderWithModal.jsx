@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import Header from "./Header";
 import AddAssetModal from "./AddAssetModal";
@@ -8,14 +8,13 @@ import RemoveAssetModal from "./RemoveAssetModal";
 import {
   buyHolding,
   depositCash,
-  getPortfolio,
   withdrawCash,
 } from "../services/api";
 
 import {
   refreshData,
-  useDataRefresh,
 } from "../services/refreshStore";
+import { usePortfolioSummary } from "../services/portfolioSummaryStore";
 
 function HeaderWithModal() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -23,9 +22,7 @@ function HeaderWithModal() {
   const [cashModalMode, setCashModalMode] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [summary, setSummary] = useState(null);
-
-  const refreshKey = useDataRefresh();
+  const { summary } = usePortfolioSummary(1);
 
   const openAddModal = () => {
     setError(null);
@@ -55,22 +52,6 @@ function HeaderWithModal() {
       setError(null);
     }
   };
-
-  const loadSummary = async () => {
-    try {
-      const result = await getPortfolio(1);
-
-      if (result.response.ok) {
-        setSummary(result.data);
-      }
-    } catch {
-      // Ignore summary refresh failures for now.
-    }
-  };
-
-  useEffect(() => {
-    loadSummary();
-  }, [refreshKey]);
 
   const handleAddSubmit = async ({
     asset_id,

@@ -7,8 +7,8 @@ import AssetAllocation from "../components/AssetAllocation";
 import PerformanceChart from "../components/PerformanceChart";
 import HoldingsTable from "../components/HoldingsTable";
 import StatTile from "../components/StatTile";
-import { getPortfolio } from "../services/api";
 import { useDataRefresh } from "../services/refreshStore";
+import { usePortfolioSummary } from "../services/portfolioSummaryStore";
 
 function scheduleDeferredHoldingsLoad(callback) {
   if (typeof window !== "undefined" && "requestIdleCallback" in window) {
@@ -30,46 +30,13 @@ function cancelDeferredHoldingsLoad(handle) {
 }
 
 function Dashboard() {
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [showHoldings, setShowHoldings] = useState(false);
   const refreshKey = useDataRefresh();
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadSummary() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const portfolioResult = await getPortfolio(1);
-
-        if (!portfolioResult.response.ok) {
-          throw new Error(
-            portfolioResult.data?.error ||
-              "Failed to load portfolio summary."
-          );
-        }
-
-        if (isMounted) {
-          setSummary(portfolioResult.data ?? null);
-          setLoading(false);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(err.message);
-          setLoading(false);
-        }
-      }
-    }
-
-    loadSummary();
-    return () => {
-      isMounted = false;
-    };
-  }, [refreshKey]);
+  const {
+    summary,
+    loading,
+    error,
+  } = usePortfolioSummary(1);
 
   useEffect(() => {
     if (loading || showHoldings) {
