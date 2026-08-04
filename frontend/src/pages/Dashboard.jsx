@@ -10,6 +10,25 @@ import StatTile from "../components/StatTile";
 import { getPortfolio } from "../services/api";
 import { useDataRefresh } from "../services/refreshStore";
 
+function scheduleDeferredHoldingsLoad(callback) {
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    return window.requestIdleCallback(callback, {
+      timeout: 1200,
+    });
+  }
+
+  return window.setTimeout(callback, 250);
+}
+
+function cancelDeferredHoldingsLoad(handle) {
+  if (typeof window !== "undefined" && "cancelIdleCallback" in window) {
+    window.cancelIdleCallback(handle);
+    return;
+  }
+
+  clearTimeout(handle);
+}
+
 function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -57,14 +76,24 @@ function Dashboard() {
       return;
     }
 
-    const timeoutId = setTimeout(() => {
+    const deferredLoadHandle = scheduleDeferredHoldingsLoad(() => {
       startTransition(() => {
         setShowHoldings(true);
       });
+    });
+
+    return () => cancelDeferredHoldingsLoad(deferredLoadHandle);
+  }, [loading, showHoldings]);
+
+  useEffect(() => {
+    const resetHandle = window.setTimeout(() => {
+      startTransition(() => {
+        setShowHoldings(false);
+      });
     }, 0);
 
-    return () => clearTimeout(timeoutId);
-  }, [loading, showHoldings]);
+    return () => clearTimeout(resetHandle);
+  }, [refreshKey]);
 
   const holdingsSummary = [
     { label: "Stocks Value", value: summary?.stocks_value ?? 0 },
