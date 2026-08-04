@@ -1,13 +1,42 @@
 import { useEffect, useState } from "react";
-import { getStock } from "../services/api";
+import { getHoldings, getStock } from "../services/api";
+
+const ASSET_TYPE_BY_ID = {
+  1: "Stock",
+  2: "Bond",
+  3: "Crypto",
+};
 
 function AddAssetModal({ isOpen, onClose, onSubmit }) {
   const [assetId, setAssetId] = useState(1);
   const [ticker, setTicker] = useState("");
+  const [holdings, setHoldings] = useState([]);
   const [shares, setShares] = useState("");
   const [livePrice, setLivePrice] = useState(null);
   const [priceLoading, setPriceLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    getHoldings(1)
+      .then((result) => {
+        if (!result.response.ok) {
+          return;
+        }
+
+        const holdings = Array.isArray(result.data)
+          ? result.data
+          : [];
+
+        setHoldings(holdings);
+      })
+      .catch(() => {
+        setHoldings([]);
+      });
+  }, [isOpen]);
 
   useEffect(() => {
     const cleanedTicker = ticker.trim().toUpperCase();
@@ -72,6 +101,31 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
       ? sharesValue * livePrice
       : 0;
 
+  const normalizedTicker = ticker
+    .trim()
+    .toUpperCase();
+
+  const selectedAssetType = ASSET_TYPE_BY_ID[assetId];
+
+  const matchingHoldings = holdings.filter(
+    (holding) => {
+      const sameType =
+        holding.asset_type === selectedAssetType;
+
+      if (!sameType) {
+        return false;
+      }
+
+      if (!normalizedTicker) {
+        return true;
+      }
+
+      return String(holding.ticker || "")
+        .toUpperCase()
+        .includes(normalizedTicker);
+    }
+  );
+
   const resetForm = () => {
     setAssetId(1);
     setTicker("");
@@ -84,6 +138,14 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
   const handleClose = () => {
     resetForm();
     onClose();
+  };
+
+  const handleAssetTypeChange = (event) => {
+    setAssetId(Number(event.target.value));
+    setTicker("");
+    setLivePrice(null);
+    setPriceLoading(false);
+    setError(null);
   };
 
   const handleSubmit = async (event) => {
@@ -156,11 +218,7 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
             <select
               id="assetType"
               value={assetId}
-              onChange={(event) =>
-                setAssetId(
-                  Number(event.target.value)
-                )
-              }
+              onChange={handleAssetTypeChange}
             >
               <option value={1}>Stock</option>
               <option value={2}>Bond</option>
@@ -177,13 +235,25 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
               id="ticker"
               type="text"
               value={ticker}
+              list="ownedTickerOptions"
               onChange={(event) =>
                 setTicker(event.target.value)
               }
-              placeholder="AAPL"
+              placeholder="Select or enter a ticker"
               autoComplete="off"
               required
             />
+
+            <datalist id="ownedTickerOptions">
+              {matchingHoldings.map((holding) => (
+                <option
+                  key={holding.holding_id ?? holding.ticker}
+                  value={holding.ticker}
+                >
+                  {holding.company_name}
+                </option>
+              ))}
+            </datalist>
           </div>
 
           <div className="form-group">

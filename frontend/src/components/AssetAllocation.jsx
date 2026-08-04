@@ -1,6 +1,3 @@
-import { useState, useEffect } from "react";
-import { getPortfolio, getHoldings, getStock } from "../services/api";
-import { useDataRefresh } from "../services/refreshStore";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
 
 const COLORS = {
@@ -9,68 +6,19 @@ const COLORS = {
   'Crypto': '#f59e0b',
   'Cash': '#a78bfa'
 };
-
-
-
-function AssetAllocation() {
-  const [values, setValues] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const refreshKey = useDataRefresh();
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadAllocation() {
-      try {
-        const [portfolioResult, holdingsResult] = await Promise.all([
-          getPortfolio(1),
-          getHoldings(1),
-        ]);
-
-        if (!portfolioResult.response.ok) {
-          throw new Error(portfolioResult.data?.error || "Failed to load portfolio.");
-        }
-
-        const holdings = Array.isArray(holdingsResult.data) ? holdingsResult.data : [];
-        const totals = { Stock: 0, Bond: 0, Crypto: 0, Cash: 0 };
-
-        await Promise.all(
-          holdings.map(async (holding) => {
-            const shares = parseFloat(holding.shares) || 0;
-            let price = 0;
-            try {
-              const stockResult = await getStock(holding.ticker);
-              price = stockResult.data?.price ?? 0;
-            } catch {
-              price = 0;
-            }
-            const marketValue = shares * price;
-            const type = holding.asset_type || "Stock";
-            const label = type === "Stock" ? "Stock" : type === "Bond" ? "Bond" : type === "Crypto" ? "Crypto" : "Cash";
-            totals[label] += marketValue;
-          })
-        );
-
-        totals.Cash = parseFloat(portfolioResult.data?.cash_balance) || 0;
-
-        if (isMounted) {
-          setValues(totals);
-          setLoading(false);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(err.message);
-          setLoading(false);
-        }
+function AssetAllocation({
+  summary,
+  loading = false,
+  error = null,
+}) {
+  const values = summary
+    ? {
+        Stock: Number(summary.stocks_value ?? 0),
+        Bond: Number(summary.bonds_value ?? 0),
+        Crypto: Number(summary.crypto_value ?? 0),
+        Cash: Number(summary.cash_balance ?? 0),
       }
-    }
-
-    loadAllocation();
-    return () => {
-      isMounted = false;
-    };
-  }, [refreshKey]);
+    : null;
 
   if (loading) {
     return (

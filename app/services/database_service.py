@@ -6,6 +6,66 @@ from app.services.yahoo_service import get_info
 
 
 class DataBaseService:
+    def _get_market_quote(self, ticker):
+        try:
+            info = get_info(ticker) or {}
+        except Exception as error:
+            print(
+                f"Yahoo lookup failed for "
+                f"{ticker}: {error}"
+            )
+            info = {}
+
+        current_price = Decimal(
+            str(
+                info.get("currentPrice")
+                or info.get("regularMarketPrice")
+                or info.get("navPrice")
+                or 0
+            )
+        )
+
+        previous_close = Decimal(
+            str(
+                info.get("previousClose")
+                or info.get("regularMarketPreviousClose")
+                or current_price
+                or 0
+            )
+        )
+
+        return current_price, previous_close
+
+    def _enrich_holding_with_market_data(self, holding):
+        shares = Decimal(str(holding["shares"] or 0))
+        cost_basis = Decimal(
+            str(holding["cost_basis"] or 0)
+        )
+        current_price, previous_close = self._get_market_quote(
+            holding["ticker"]
+        )
+
+        market_value = shares * current_price
+        total_cost = shares * cost_basis
+        profit_loss = market_value - total_cost
+        profit_loss_percent = Decimal("0.00")
+
+        if total_cost > 0:
+            profit_loss_percent = (
+                profit_loss / total_cost
+            ) * Decimal("100")
+
+        return {
+            **holding,
+            "current_price": float(current_price),
+            "previous_close": float(previous_close),
+            "market_value": float(market_value),
+            "profit_loss": float(profit_loss),
+            "profit_loss_percent": float(
+                profit_loss_percent
+            ),
+        }
+
     def _ensure_portfolio_history_table(self, db):
         cursor = db.cursor()
 
@@ -93,11 +153,16 @@ class DataBaseService:
                 (portfolio_id,),
             )
 
-            return cursor.fetchall()
+            holdings = cursor.fetchall()
 
         finally:
             cursor.close()
             db.close()
+
+        return [
+            self._enrich_holding_with_market_data(holding)
+            for holding in holdings
+        ]
 
     def get_holding_by_id(self, holding_id):
         db = get_db_connection()
@@ -124,11 +189,16 @@ class DataBaseService:
                 (holding_id,),
             )
 
-            return cursor.fetchone()
+            holding = cursor.fetchone()
 
         finally:
             cursor.close()
             db.close()
+
+        if holding is None:
+            return None
+
+        return self._enrich_holding_with_market_data(holding)
 
     def get_holding_by_ticker(self, portfolio_id, ticker):
         db = get_db_connection()
@@ -1089,38 +1159,8 @@ class DataBaseService:
                 holding["asset_type"] or "Stock"
             )
 
-            try:
-                info = get_info(ticker) or {}
-
-            except Exception as error:
-                print(
-                    f"Yahoo lookup failed for "
-                    f"{ticker}: {error}"
-                )
-                info = {}
-
-            current_price_value = (
-                info.get("currentPrice")
-                or info.get("regularMarketPrice")
-                or info.get("navPrice")
-                or 0
-            )
-
-            previous_close_value = (
-                info.get("previousClose")
-                or info.get(
-                    "regularMarketPreviousClose"
-                )
-                or current_price_value
-                or 0
-            )
-
-            current_price = Decimal(
-                str(current_price_value)
-            )
-
-            previous_close = Decimal(
-                str(previous_close_value)
+            current_price, previous_close = (
+                self._get_market_quote(ticker)
             )
 
             market_value = shares * current_price
@@ -1198,8 +1238,10 @@ class DataBaseService:
         self,
         portfolio_id,
         snapshot_date=None,
+        summary=None,
     ):
-        summary = self.get_portfolio_summary(portfolio_id)
+        if summary is None:
+            summary = self.get_portfolio_summary(portfolio_id)
 
         if summary is None:
             return None

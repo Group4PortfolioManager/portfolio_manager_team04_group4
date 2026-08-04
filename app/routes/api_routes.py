@@ -60,7 +60,8 @@ def get_portfolio(portfolio_id):
 
         # Update today's snapshot when portfolio data is loaded.
         database_service.upsert_portfolio_snapshot(
-            portfolio_id
+            portfolio_id,
+            summary=summary,
         )
 
         return {

@@ -567,7 +567,9 @@ tr:hover {
   font-size: 14px;
 }
 
-.form-group select {
+.form-group select,
+.form-group input[type="text"],
+.form-group datalist {
   width: 100%;
   min-height: 42px;
   padding: 10px 40px 10px 12px;
@@ -605,12 +607,15 @@ tr:hover {
 }
 
 .form-group select:focus,
-.form-group input:focus {
+.form-group input:focus,
+.form-group input[type="text"]:focus,
+.form-group datalist:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
-.form-group select option {
+.form-group select option,
+.form-group datalist {
   background-color: var(--panel);
   color: var(--text);
 }

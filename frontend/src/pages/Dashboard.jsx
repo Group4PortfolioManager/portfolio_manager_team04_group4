@@ -1,75 +1,65 @@
-import { useEffect, useState } from "react";
+import {
+  startTransition,
+  useEffect,
+  useState,
+} from "react";
 import AssetAllocation from "../components/AssetAllocation";
 import PerformanceChart from "../components/PerformanceChart";
 import HoldingsTable from "../components/HoldingsTable";
 import StatTile from "../components/StatTile";
-import { getPortfolio, getHoldings, getStock } from "../services/api";
 import { useDataRefresh } from "../services/refreshStore";
+import { usePortfolioSummary } from "../services/portfolioSummaryStore";
 
-const ASSET_TYPE_LABELS = {
-  Stock: "stocks_value",
-  Bond: "bonds_value",
-  Crypto: "crypto_value",
-};
+function scheduleDeferredHoldingsLoad(callback) {
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    return window.requestIdleCallback(callback, {
+      timeout: 1200,
+    });
+  }
+
+  return window.setTimeout(callback, 250);
+}
+
+function cancelDeferredHoldingsLoad(handle) {
+  if (typeof window !== "undefined" && "cancelIdleCallback" in window) {
+    window.cancelIdleCallback(handle);
+    return;
+  }
+
+  clearTimeout(handle);
+}
 
 function Dashboard() {
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [showHoldings, setShowHoldings] = useState(false);
   const refreshKey = useDataRefresh();
+  const {
+    summary,
+    loading,
+    error,
+  } = usePortfolioSummary(1);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadSummary() {
-      try {
-        const [portfolioResult, holdingsResult] = await Promise.all([
-          getPortfolio(1),
-          getHoldings(1),
-        ]);
-
-        if (!portfolioResult.response.ok) {
-          throw new Error(portfolioResult.data?.error || "Failed to load portfolio summary.");
-        }
-
-        const holdings = Array.isArray(holdingsResult.data) ? holdingsResult.data : [];
-        const totals = { stocks_value: 0, bonds_value: 0, crypto_value: 0 };
-
-        await Promise.all(
-          holdings.map(async (holding) => {
-            const shares = parseFloat(holding.shares) || 0;
-            let price = 0;
-            try {
-              const stockResult = await getStock(holding.ticker);
-              price = stockResult.data?.price ?? 0;
-            } catch {
-              price = 0;
-            }
-            const marketValue = shares * price;
-            const key = ASSET_TYPE_LABELS[holding.asset_type] || "stocks_value";
-            totals[key] += marketValue;
-          })
-        );
-
-        if (isMounted) {
-          setSummary({
-            ...totals,
-            cash_balance: portfolioResult.data?.cash_balance ?? 0,
-          });
-          setLoading(false);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(err.message);
-          setLoading(false);
-        }
-      }
+    if (loading || showHoldings) {
+      return;
     }
 
-    loadSummary();
-    return () => {
-      isMounted = false;
-    };
+    const deferredLoadHandle = scheduleDeferredHoldingsLoad(() => {
+      startTransition(() => {
+        setShowHoldings(true);
+      });
+    });
+
+    return () => cancelDeferredHoldingsLoad(deferredLoadHandle);
+  }, [loading, showHoldings]);
+
+  useEffect(() => {
+    const resetHandle = window.setTimeout(() => {
+      startTransition(() => {
+        setShowHoldings(false);
+      });
+    }, 0);
+
+    return () => clearTimeout(resetHandle);
   }, [refreshKey]);
 
   const holdingsSummary = [
@@ -91,11 +81,22 @@ function Dashboard() {
         ))}
       </div>
 
-      <AssetAllocation />
+      <AssetAllocation
+        summary={summary}
+        loading={loading}
+        error={error}
+      />
       <PerformanceChart />
 
       <div className="span-2">
-        <HoldingsTable showLink />
+        {showHoldings ? (
+          <HoldingsTable showLink />
+        ) : (
+          <div className="panel panel-holdings">
+            <h2>Top Holdings</h2>
+            <p>Loading holdings...</p>
+          </div>
+        )}
       </div>
     </div>
   );
