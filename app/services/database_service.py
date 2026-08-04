@@ -639,6 +639,165 @@ class DataBaseService:
             cursor.close()
             db.close()
 
+    def deposit_cash(self, portfolio_id, amount):
+        try:
+            amount_decimal = Decimal(str(amount))
+        except (
+            InvalidOperation,
+            TypeError,
+            ValueError,
+        ) as exc:
+            raise ValueError(
+                "Deposit amount must be a valid number."
+            ) from exc
+
+        if amount_decimal <= 0:
+            raise ValueError(
+                "Deposit amount must be greater than zero."
+            )
+
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT
+                    portfolio_id,
+                    cash_balance
+                FROM portfolio
+                WHERE portfolio_id = %s
+                FOR UPDATE;
+                """,
+                (portfolio_id,),
+            )
+
+            portfolio = cursor.fetchone()
+
+            if portfolio is None:
+                raise ValueError("Portfolio not found.")
+
+            previous_cash_balance = Decimal(
+                str(portfolio["cash_balance"] or 0)
+            )
+
+            cursor.execute(
+                """
+                UPDATE portfolio
+                SET cash_balance = cash_balance + %s
+                WHERE portfolio_id = %s;
+                """,
+                (
+                    amount_decimal,
+                    portfolio_id,
+                ),
+            )
+
+            db.commit()
+
+            return {
+                "action": "deposit",
+                "portfolio_id": portfolio_id,
+                "amount": float(amount_decimal),
+                "previous_cash_balance": float(
+                    previous_cash_balance
+                ),
+                "cash_balance": float(
+                    previous_cash_balance
+                    + amount_decimal
+                ),
+            }
+
+        except Exception:
+            db.rollback()
+            raise
+
+        finally:
+            cursor.close()
+            db.close()
+
+    def withdraw_cash(self, portfolio_id, amount):
+        try:
+            amount_decimal = Decimal(str(amount))
+        except (
+            InvalidOperation,
+            TypeError,
+            ValueError,
+        ) as exc:
+            raise ValueError(
+                "Withdrawal amount must be a valid number."
+            ) from exc
+
+        if amount_decimal <= 0:
+            raise ValueError(
+                "Withdrawal amount must be greater than zero."
+            )
+
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT
+                    portfolio_id,
+                    cash_balance
+                FROM portfolio
+                WHERE portfolio_id = %s
+                FOR UPDATE;
+                """,
+                (portfolio_id,),
+            )
+
+            portfolio = cursor.fetchone()
+
+            if portfolio is None:
+                raise ValueError("Portfolio not found.")
+
+            previous_cash_balance = Decimal(
+                str(portfolio["cash_balance"] or 0)
+            )
+
+            if amount_decimal > previous_cash_balance:
+                raise ValueError(
+                    "Insufficient cash balance for withdrawal."
+                )
+
+            cursor.execute(
+                """
+                UPDATE portfolio
+                SET cash_balance = cash_balance - %s
+                WHERE portfolio_id = %s;
+                """,
+                (
+                    amount_decimal,
+                    portfolio_id,
+                ),
+            )
+
+            db.commit()
+
+            return {
+                "action": "withdraw",
+                "portfolio_id": portfolio_id,
+                "amount": float(amount_decimal),
+                "previous_cash_balance": float(
+                    previous_cash_balance
+                ),
+                "cash_balance": float(
+                    previous_cash_balance
+                    - amount_decimal
+                ),
+            }
+
+        except Exception:
+            db.rollback()
+            raise
+
+        finally:
+            cursor.close()
+            db.close()
+
     def get_asset_by_type(self, asset_type):
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)

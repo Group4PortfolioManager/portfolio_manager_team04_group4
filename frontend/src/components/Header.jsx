@@ -1,4 +1,10 @@
-function Header({ onAddAsset, onRemoveAsset, summary }) {
+function Header({
+  onAddAsset,
+  onRemoveAsset,
+  onDepositCash,
+  onWithdrawCash,
+  summary,
+}) {
   const totalValue = summary?.total_value ?? 0;
   const totalReturn = summary?.total_return ?? 0;
   const costBasis = summary?.cost_basis_total ?? 0;
@@ -39,6 +45,8 @@ function Header({ onAddAsset, onRemoveAsset, summary }) {
       </div>
 
       <div className="topbar-actions">
+        <button type="button" className="btn btn-secondary" onClick={onDepositCash}>Deposit Cash</button>
+        <button type="button" className="btn btn-secondary" onClick={onWithdrawCash}>Withdraw Cash</button>
         <button type="button" className="btn btn-primary" onClick={onAddAsset}>+ Add Asset</button>
         <button type="button" className="btn btn-secondary" onClick={onRemoveAsset}>Remove Asset</button>
       </div>

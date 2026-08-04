@@ -142,6 +142,38 @@ async function sellHolding(
   );
 }
 
+async function depositCash(
+  portfolioId,
+  amount
+) {
+  return fetchWithJsonFallback(
+    `${API_BASE_URL}/portfolios/${portfolioId}/cash/deposit`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount }),
+    }
+  );
+}
+
+async function withdrawCash(
+  portfolioId,
+  amount
+) {
+  return fetchWithJsonFallback(
+    `${API_BASE_URL}/portfolios/${portfolioId}/cash/withdraw`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount }),
+    }
+  );
+}
+
 export {
   fetchJson,
   getPortfolio,
@@ -153,4 +185,6 @@ export {
   getStock,
   buyHolding,
   sellHolding,
+  depositCash,
+  withdrawCash,
 };
