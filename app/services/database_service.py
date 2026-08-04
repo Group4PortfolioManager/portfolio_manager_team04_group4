@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from app.database import get_db_connection
@@ -5,6 +6,28 @@ from app.services.yahoo_service import get_info
 
 
 class DataBaseService:
+    def _ensure_portfolio_history_table(self, db):
+        cursor = db.cursor()
+
+        try:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS portfolio_history (
+                    portfolio_id INT NOT NULL,
+                    snapshot_date DATE NOT NULL,
+                    cash_balance DECIMAL(12, 2) NOT NULL,
+                    portfolio_value DECIMAL(14, 2) NOT NULL,
+                    PRIMARY KEY (portfolio_id, snapshot_date),
+                    CONSTRAINT fk_portfolio_history_portfolio
+                    FOREIGN KEY (portfolio_id)
+                    REFERENCES portfolio(portfolio_id)
+                    ON DELETE CASCADE
+                );
+                """
+            )
+        finally:
+            cursor.close()
+
     def get_all_portfolios(self):
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)
@@ -1011,3 +1034,133 @@ class DataBaseService:
                 total_cost_basis
             ),
         }
+
+    def upsert_portfolio_snapshot(
+        self,
+        portfolio_id,
+        snapshot_date=None,
+    ):
+        summary = self.get_portfolio_summary(portfolio_id)
+
+        if summary is None:
+            return None
+
+        if snapshot_date is None:
+            snapshot_date = date.today()
+
+        db = get_db_connection()
+        cursor = db.cursor()
+
+        try:
+            self._ensure_portfolio_history_table(db)
+
+            cursor.execute(
+                """
+                INSERT INTO portfolio_history (
+                    portfolio_id,
+                    snapshot_date,
+                    cash_balance,
+                    portfolio_value
+                )
+                VALUES (%s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    cash_balance = VALUES(cash_balance),
+                    portfolio_value = VALUES(portfolio_value);
+                """,
+                (
+                    portfolio_id,
+                    snapshot_date,
+                    summary["cash_balance"],
+                    summary["total_value"],
+                ),
+            )
+
+            db.commit()
+
+            return {
+                "portfolio_id": portfolio_id,
+                "snapshot_date": str(snapshot_date),
+                "cash_balance": float(summary["cash_balance"]),
+                "portfolio_value": float(summary["total_value"]),
+            }
+
+        except Exception:
+            db.rollback()
+            raise
+
+        finally:
+            cursor.close()
+            db.close()
+
+    def get_portfolio_snapshots(
+        self,
+        portfolio_id,
+        start_date=None,
+        end_date=None,
+    ):
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+
+        try:
+            self._ensure_portfolio_history_table(db)
+
+            query = (
+                """
+                SELECT
+                    snapshot_date,
+                    cash_balance,
+                    portfolio_value
+                FROM portfolio_history
+                WHERE portfolio_id = %s
+                """
+            )
+            params = [portfolio_id]
+
+            if start_date is not None:
+                query += " AND snapshot_date >= %s"
+                params.append(start_date)
+
+            if end_date is not None:
+                query += " AND snapshot_date <= %s"
+                params.append(end_date)
+
+            query += " ORDER BY snapshot_date;"
+
+            cursor.execute(query, tuple(params))
+            return cursor.fetchall()
+
+        finally:
+            cursor.close()
+            db.close()
+
+    def get_latest_portfolio_snapshot_before(
+        self,
+        portfolio_id,
+        before_date,
+    ):
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+
+        try:
+            self._ensure_portfolio_history_table(db)
+
+            cursor.execute(
+                """
+                SELECT
+                    snapshot_date,
+                    cash_balance,
+                    portfolio_value
+                FROM portfolio_history
+                WHERE portfolio_id = %s
+                  AND snapshot_date < %s
+                ORDER BY snapshot_date DESC
+                LIMIT 1;
+                """,
+                (portfolio_id, before_date),
+            )
+
+            return cursor.fetchone()
+
+        finally:
+            cursor.close()
+            db.close()

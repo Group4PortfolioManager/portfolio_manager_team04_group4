@@ -45,3 +45,19 @@ create table if not exists Holdings (
 	references Asset(asset_id)
         on delete cascade
     );
+
+/*Creating daily portfolio history snapshots table*/
+create table if not exists portfolio_history (
+    portfolio_id int not null,
+    snapshot_date date not null,
+    cash_balance decimal(12, 2) not null,
+    portfolio_value decimal(14, 2) not null,
+
+    /*Ensures one snapshot per portfolio per day*/
+    primary key (portfolio_id, snapshot_date),
+
+    constraint fk_portfolio_history_portfolio
+	foreign key (portfolio_id)
+	references Portfolio(portfolio_id)
+        on delete cascade
+    );
