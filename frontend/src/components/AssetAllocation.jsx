@@ -59,7 +59,7 @@ function AssetAllocation() {
   const total = assets.length;
   const allocation = assets.reduce((acc, asset) => {
     const type = asset.asset_type || 'Stock';
-    const label = type === 'Stock' ? 'Stocks' : type === 'Bond' ? 'Bonds' : type === 'Crypto' ? 'Crypto' : 'Cash';
+    const label = type === 'Stock' ? 'Stock' : type === 'Bond' ? 'Bond' : type === 'Crypto' ? 'Crypto' : 'Cash';
     acc[label] = (acc[label] || 0) + 1;
     return acc;
   }, {});
