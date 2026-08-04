@@ -3,7 +3,7 @@ const API_BASE_URL = "http://127.0.0.1:5000";
 /* GET METHOD */
 async function fetchJson(url) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const timeoutId = setTimeout(() => controller.abort(), 100000);
 
   try {
     const response = await fetch(url, {
