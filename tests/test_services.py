@@ -121,3 +121,93 @@ def test_upsert_portfolio_snapshot_uses_given_summary_without_recomputing(monkey
 		"portfolio_value": 1200.0,
 	}
 
+
+def test_get_market_quote_defaults_to_zero_on_lookup_failure(monkeypatch):
+	service = database_service.DataBaseService()
+
+	def raise_lookup_error(_ticker):
+		raise RuntimeError("boom")
+
+	monkeypatch.setattr(
+		database_service,
+		"get_info",
+		raise_lookup_error,
+	)
+
+	current_price, previous_close = service._get_market_quote("AAPL")
+
+	assert current_price == Decimal("0")
+	assert previous_close == Decimal("0")
+
+
+def test_add_holding_rejects_missing_required_fields():
+	service = database_service.DataBaseService()
+
+	try:
+		service.add_holding({"portfolio_id": 1})
+		raise AssertionError("Expected ValueError")
+	except ValueError as error:
+		message = str(error)
+		assert "Missing required fields" in message
+		assert "asset_id" in message
+
+
+def test_add_holding_rejects_non_positive_shares():
+	service = database_service.DataBaseService()
+
+	payload = {
+		"portfolio_id": 1,
+		"asset_id": 1,
+		"ticker": "AAPL",
+		"company_name": "Apple",
+		"shares": 0,
+		"cost_basis": 10,
+		"purchase_date": "2026-08-05",
+	}
+
+	try:
+		service.add_holding(payload)
+		raise AssertionError("Expected ValueError")
+	except ValueError as error:
+		assert str(error) == "shares must be greater than zero."
+
+
+def test_add_holding_rejects_negative_cost_basis():
+	service = database_service.DataBaseService()
+
+	payload = {
+		"portfolio_id": 1,
+		"asset_id": 1,
+		"ticker": "AAPL",
+		"company_name": "Apple",
+		"shares": 2,
+		"cost_basis": -1,
+		"purchase_date": "2026-08-05",
+	}
+
+	try:
+		service.add_holding(payload)
+		raise AssertionError("Expected ValueError")
+	except ValueError as error:
+		assert str(error) == "cost_basis cannot be negative."
+
+
+def test_withdraw_cash_rejects_invalid_amount_before_db_work():
+	service = database_service.DataBaseService()
+
+	try:
+		service.withdraw_cash(1, "not-a-number")
+		raise AssertionError("Expected ValueError")
+	except ValueError as error:
+		assert "Withdrawal amount must be a valid number." == str(error)
+
+
+def test_deposit_cash_rejects_invalid_amount_before_db_work():
+	service = database_service.DataBaseService()
+
+	try:
+		service.deposit_cash(1, "not-a-number")
+		raise AssertionError("Expected ValueError")
+	except ValueError as error:
+		assert "Deposit amount must be a valid number." == str(error)
+
