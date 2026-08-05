@@ -33,11 +33,14 @@ This project is mostly coded in Python for the backend and Javascript, HTML, and
 
 ### Layout
 The application is separated into 4 major sections:
-|---|---|
-|`app`|Holds database, backend API routes, input validation (security), and services|
-|`scripts`|Holds the scripts needed to initialize and connect the database|
-|`frontend`|Holds the code to render the portfolio application|
-|`tests`|Holds the code to test the multiple operations performed by the backend|
+<table>
+<tbody>
+<tr><td><code>app</code></td><td>Holds database, backend API routes, input validation (security), and services</td></tr>
+<tr><td><code>scripts</code></td><td>Holds the scripts needed to initialize and connect the database</td></tr>
+<tr><td><code>frontend</code></td><td>Holds the code to render the portfolio application</td></tr>
+<tr><td><code>tests</code></td><td>Holds the code to test the multiple operations performed by the backend</td></tr>
+</tbody>
+</table>
 
 Important Files/Folders:
 |Path|Usage|
