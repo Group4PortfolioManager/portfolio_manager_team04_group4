@@ -18,7 +18,7 @@ from app.services.yahoo_service import (
 api_bp = Blueprint("api_bp", __name__)
 database_service = DataBaseService()
 
-ticker_pattern = re.compile(r"^[A-Z0-9.-]{1-15}$")
+ticker_pattern = re.compile(r"^[A-Z0-9.-]{1,15}$")
 
 def validate_ticker(value):
     if not isinstance(value, str):
