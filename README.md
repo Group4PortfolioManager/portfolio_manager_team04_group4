@@ -33,6 +33,7 @@ This project is mostly coded in Python for the backend and Javascript, HTML, and
 
 ### Layout
 The application is separated into 4 major sections:
+
 |`app`|Holds database, backend API routes, input validation (security), and services|
 |`scripts`|Holds the scripts needed to initialize and connect the database|
 |`frontend`|Holds the code to render the portfolio application|
