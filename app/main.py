@@ -19,7 +19,33 @@ assets, holdings = get_initial_data(db, portfolio)
 
 app = Flask(__name__)
 app.config.from_object(Config)
-CORS(app)
+CORS(
+    app,
+     resources={
+         r"/*": {
+             "origins": [
+                 "http://localhost:5173",
+                 "http://127.0.0.1:5173",
+              ]
+        }
+    },
+)
+
+@app.after_request
+def add_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = ("strict-origin-when-cross-origin")
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "object-src 'none'"
+    )
+    
+    return response
+
+
 
 @app.route('/')
 def index():

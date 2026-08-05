@@ -1,3 +1,5 @@
+import re
+from decimal import Decimal, InvalidOperation
 import traceback
 from datetime import datetime
 
@@ -16,6 +18,18 @@ from app.services.yahoo_service import (
 api_bp = Blueprint("api_bp", __name__)
 database_service = DataBaseService()
 
+ticker_pattern = re.compile(r"^[A-Z0-9.-]{1,15}$")
+
+def validate_ticker(value):
+    if not isinstance(value, str):
+        raise ValueError("Ticker must be text.")
+    
+    ticker = value.strip().upper()
+    
+    if not ticker_pattern.fullmatch(ticker):
+        raise ValueError("Invalid ticker format.")
+    
+    return ticker
 
 @api_bp.route("/portfolios", methods=["GET"])
 def get_portfolios():
@@ -225,9 +239,9 @@ def get_asset(asset_id):
     methods=["GET"],
 )
 def get_stock(ticker):
-    ticker = ticker.strip().upper()
-
     try:
+        ticker = validate_ticker(ticker)
+        
         info = get_info(ticker)
 
         if not info:
@@ -257,6 +271,9 @@ def get_stock(ticker):
             "currency": info.get("currency"),
         }, 200
 
+    except ValueError as error:
+        return {"error": str(error)}, 400
+    
     except Exception as error:
         traceback.print_exc()
 
@@ -357,12 +374,13 @@ def buy_holding(portfolio_id):
             )
         }, 400
 
-    ticker = ticker.strip().upper()
-
     try:
+        ticker = validate_ticker(ticker)
+        
         asset = database_service.get_asset_by_id(
             asset_id
         )
+        
 
         if asset is None:
             return {
@@ -453,9 +471,9 @@ def sell_holding(portfolio_id):
             "error": "ticker and shares are required"
         }, 400
 
-    ticker = ticker.strip().upper()
-
     try:
+        ticker = validate_ticker(ticker)
+        
         info = get_info(ticker) or {}
 
         sale_price = (
