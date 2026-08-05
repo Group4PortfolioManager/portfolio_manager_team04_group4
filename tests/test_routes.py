@@ -11,8 +11,10 @@ class FakeDbService:
 		self.remove_shares_calls = []
 		self.deposit_calls = []
 		self.withdraw_calls = []
+		self.deleted_portfolios = []
 		self.raise_on_assets = False
 		self.raise_on_holdings = False
+		self.summary_total_value = 1250.0
 
 	def get_portfolio_by_id(self, portfolio_id):
 		if portfolio_id == 404:
@@ -27,7 +29,7 @@ class FakeDbService:
 		if portfolio_id == 500:
 			return None
 		return {
-			"total_value": 1250.0,
+			"total_value": self.summary_total_value,
 			"stocks_value": 600.0,
 			"bonds_value": 100.0,
 			"crypto_value": 50.0,
@@ -134,6 +136,12 @@ class FakeDbService:
 			"cash_balance": 300.0,
 		}
 
+	def delete_portfolio_by_id(self, portfolio_id):
+		if portfolio_id == 404:
+			return False
+		self.deleted_portfolios.append(portfolio_id)
+		return True
+
 
 def _performance_history_stub(portfolio_id, window_type="months", window_size=12):
 	if portfolio_id == 404:
@@ -191,6 +199,43 @@ def test_get_portfolios_returns_list(monkeypatch):
 	assert response.status_code == 200
 	payload = response.get_json()
 	assert payload == [{"portfolio_id": 1, "portfolio_name": "Demo"}]
+
+
+def test_delete_portfolio_rejects_non_zero_value(monkeypatch):
+	fake_db = FakeDbService()
+	fake_db.summary_total_value = 100.0
+	monkeypatch.setattr(api_routes, "database_service", fake_db)
+
+	client = _build_client()
+	response = client.delete("/portfolios/1")
+
+	assert response.status_code == 400
+	assert "only when its total value is $0" in response.get_json()["error"]
+	assert fake_db.deleted_portfolios == []
+
+
+def test_delete_portfolio_succeeds_when_zero_value(monkeypatch):
+	fake_db = FakeDbService()
+	fake_db.summary_total_value = 0.0
+	monkeypatch.setattr(api_routes, "database_service", fake_db)
+
+	client = _build_client()
+	response = client.delete("/portfolios/1")
+
+	assert response.status_code == 200
+	assert response.get_json()["message"] == "Portfolio deleted successfully"
+	assert fake_db.deleted_portfolios == [1]
+
+
+def test_delete_portfolio_returns_404_for_missing_portfolio(monkeypatch):
+	fake_db = FakeDbService()
+	monkeypatch.setattr(api_routes, "database_service", fake_db)
+
+	client = _build_client()
+	response = client.delete("/portfolios/404")
+
+	assert response.status_code == 404
+	assert response.get_json()["error"] == "Portfolio not found"
 
 
 def test_get_portfolio_returns_404_for_missing_portfolio(monkeypatch):

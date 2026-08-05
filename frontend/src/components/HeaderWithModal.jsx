@@ -16,13 +16,13 @@ import {
 } from "../services/refreshStore";
 import { usePortfolioSummary } from "../services/portfolioSummaryStore";
 
-function HeaderWithModal() {
+function HeaderWithModal({ portfolioId }) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
   const [cashModalMode, setCashModalMode] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const { summary } = usePortfolioSummary(1);
+  const { summary } = usePortfolioSummary(portfolioId);
 
   const openAddModal = () => {
     setError(null);
@@ -63,7 +63,7 @@ function HeaderWithModal() {
 
     try {
       const result = await buyHolding(
-        1,
+        portfolioId,
         asset_id,
         ticker,
         shares
@@ -112,8 +112,8 @@ function HeaderWithModal() {
 
     try {
       const result = cashModalMode === "deposit"
-        ? await depositCash(1, amount)
-        : await withdrawCash(1, amount);
+        ? await depositCash(portfolioId, amount)
+        : await withdrawCash(portfolioId, amount);
 
       if (!result.response.ok) {
         throw new Error(
@@ -135,6 +135,8 @@ function HeaderWithModal() {
   return (
     <>
       <Header
+        portfolioId={portfolioId}
+        portfolioName={summary?.portfolio_name}
         summary={summary}
         onAddAsset={openAddModal}
         onDepositCash={openDepositModal}
@@ -143,12 +145,14 @@ function HeaderWithModal() {
       />
 
       <AddAssetModal
+        portfolioId={portfolioId}
         isOpen={isAddModalOpen}
         onClose={closeModals}
         onSubmit={handleAddSubmit}
       />
 
       <RemoveAssetModal
+        portfolioId={portfolioId}
         isOpen={isRemoveModalOpen}
         onClose={closeModals}
         onSubmit={handleRemoveSubmit}

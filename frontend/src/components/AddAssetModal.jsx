@@ -7,7 +7,12 @@ const ASSET_TYPE_BY_ID = {
   3: "Crypto",
 };
 
-function AddAssetModal({ isOpen, onClose, onSubmit }) {
+function AddAssetModal({
+  portfolioId,
+  isOpen,
+  onClose,
+  onSubmit,
+}) {
   const [assetId, setAssetId] = useState(1);
   const [ticker, setTicker] = useState("");
   const [holdings, setHoldings] = useState([]);
@@ -21,7 +26,7 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
       return;
     }
 
-    getHoldings(1)
+    getHoldings(portfolioId)
       .then((result) => {
         if (!result.response.ok) {
           return;
@@ -36,7 +41,7 @@ function AddAssetModal({ isOpen, onClose, onSubmit }) {
       .catch(() => {
         setHoldings([]);
       });
-  }, [isOpen]);
+  }, [isOpen, portfolioId]);
 
   useEffect(() => {
     const cleanedTicker = ticker.trim().toUpperCase();

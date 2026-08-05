@@ -36,6 +36,35 @@
   letter-spacing: 0.02em;
 }
 
+.sidebar-portfolio-picker {
+  display: grid;
+  gap: 6px;
+  padding: 0 14px 16px;
+}
+
+.sidebar-portfolio-picker label {
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.sidebar-portfolio-picker select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.sidebar-portfolio-picker select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
 .logo-green {
   color: #1fd67a;
 }
@@ -84,6 +113,13 @@
   background: var(--bg-raised);
   border-bottom: 1px solid var(--panel-border);
   padding: 18px 32px;
+}
+
+.topbar-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 .topbar h1 {
@@ -681,4 +717,176 @@ tr:hover {
   border-radius: 10px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
   z-index: 1100;
+}
+
+.portfolio-selector {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(31, 214, 122, 0.09), transparent 38%),
+    radial-gradient(circle at 80% 10%, rgba(126, 31, 214, 0.09), transparent 34%),
+    var(--bg);
+}
+
+.portfolio-selector.embedded {
+  min-height: auto;
+  display: block;
+  padding: 0;
+  background: transparent;
+  margin-bottom: 20px;
+}
+
+.portfolio-selector.embedded .portfolio-selector-panel {
+  width: 100%;
+}
+
+.portfolio-selector-panel {
+  width: min(980px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 28px;
+}
+
+.portfolio-selector-panel h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.portfolio-selector-panel > p {
+  margin: 8px 0 20px;
+  color: var(--text-dim);
+}
+
+.portfolio-create-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.portfolio-create-form input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.portfolio-create-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+.portfolio-selector-state {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.portfolio-selector-state.error {
+  color: var(--negative);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.portfolio-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.portfolio-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.portfolio-card h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.portfolio-card p {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.portfolio-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 1200px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 820px) {
+  .sidebar {
+    width: 100%;
+    border-right: 0;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .topbar {
+    padding: 14px 18px;
+  }
+
+  .topbar-stats {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .stat-tile-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: auto;
+  }
+
+  .portfolio-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .portfolio-card-actions {
+    width: 100%;
+  }
+
+  .portfolio-create-form {
+    grid-template-columns: 1fr;
+  }
 }

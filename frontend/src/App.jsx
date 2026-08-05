@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
 import AppLayout from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
@@ -9,12 +9,22 @@ import Settings from "./pages/Settings";
 function App() {
   return (
     <Routes>
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/holdings" element={<Holdings />} />
-        <Route path="/performance" element={<Performance />} />
-        <Route path="/settings" element={<Settings />} />
+      <Route
+        path="/"
+        element={<Navigate to="/portfolios/1" replace />}
+      />
+
+      <Route path="/portfolios/:portfolioId" element={<AppLayout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="holdings" element={<Holdings />} />
+        <Route path="performance" element={<Performance />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
+
+      <Route
+        path="*"
+        element={<Navigate to="/portfolios/1" replace />}
+      />
     </Routes>
   );
 }

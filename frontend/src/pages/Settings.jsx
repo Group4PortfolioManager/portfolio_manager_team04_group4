@@ -1,12 +1,16 @@
 import AssetsTable from "../components/AssetsTable";
+import PortfolioSelector from "./PortfolioSelector";
 
 function Settings() {
   return (
-    <div className="panel">
-      <h2>Settings</h2>
-      <p>Settings coming soon.</p>
-      <AssetsTable />
-    </div>
+    <>
+      <PortfolioSelector embedded />
+
+      <div className="panel">
+        <h2>Asset Types</h2>
+        <AssetsTable />
+      </div>
+    </>
   );
 }
 

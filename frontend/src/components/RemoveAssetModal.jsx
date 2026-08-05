@@ -6,6 +6,7 @@ import {
 } from "../services/api";
 
 function RemoveAssetModal({
+  portfolioId,
   isOpen,
   onClose,
   onSubmit,
@@ -33,7 +34,7 @@ function RemoveAssetModal({
     setError(null);
     setLivePrice(null);
 
-    getHoldings(1)
+    getHoldings(portfolioId)
       .then((result) => {
         if (!result.response.ok) {
           throw new Error(
@@ -69,7 +70,7 @@ function RemoveAssetModal({
       .finally(() => {
         setLoading(false);
       });
-  }, [isOpen]);
+  }, [isOpen, portfolioId]);
 
   useEffect(() => {
     if (
@@ -226,7 +227,7 @@ function RemoveAssetModal({
 
     try {
       const result = await sellHolding(
-        1,
+        portfolioId,
         selectedHolding.ticker,
         sharesValue
       );

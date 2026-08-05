@@ -3,6 +3,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { useParams } from "react-router-dom";
 import AssetAllocation from "../components/AssetAllocation";
 import PerformanceChart from "../components/PerformanceChart";
 import HoldingsTable from "../components/HoldingsTable";
@@ -30,13 +31,16 @@ function cancelDeferredHoldingsLoad(handle) {
 }
 
 function Dashboard() {
+  const { portfolioId } = useParams();
+  const activePortfolioId = Number.parseInt(portfolioId, 10);
+
   const [showHoldings, setShowHoldings] = useState(false);
   const refreshKey = useDataRefresh();
   const {
     summary,
     loading,
     error,
-  } = usePortfolioSummary(1);
+  } = usePortfolioSummary(activePortfolioId);
 
   useEffect(() => {
     if (loading || showHoldings) {
@@ -86,11 +90,14 @@ function Dashboard() {
         loading={loading}
         error={error}
       />
-      <PerformanceChart />
+      <PerformanceChart portfolioId={activePortfolioId} />
 
       <div className="span-2">
         {showHoldings ? (
-          <HoldingsTable showLink />
+          <HoldingsTable
+            showLink
+            portfolioId={activePortfolioId}
+          />
         ) : (
           <div className="panel panel-holdings">
             <h2>Top Holdings</h2>
