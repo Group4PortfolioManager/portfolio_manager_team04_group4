@@ -1,4 +1,6 @@
 function Header({
+  portfolioId,
+  portfolioName,
   onAddAsset,
   onRemoveAsset,
   onDepositCash,
@@ -14,9 +16,11 @@ function Header({
 
   return (
     <header className="topbar">
-      <div>
+      <div className="topbar-left">
         <h1>Portfolio Manager</h1>
-        <span className="live-dot">Live market data</span>
+        <span className="live-dot">
+          {portfolioName || `Portfolio #${portfolioId}`} | Live market data
+        </span>
       </div>
 
       <div className="topbar-stats">

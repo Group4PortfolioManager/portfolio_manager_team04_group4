@@ -7,7 +7,7 @@ import { useDataRefresh } from "../services/refreshStore";
 import HoldingRow from "./HoldingRow";
 
 
-function HoldingsTable({ showLink = false }) {
+function HoldingsTable({ showLink = false, portfolioId = 1 }) {
   const [holdings, setHoldings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,7 +25,7 @@ function HoldingsTable({ showLink = false }) {
       setError(null);
 
       try {
-        const result = await getHoldings(1);
+        const result = await getHoldings(portfolioId);
 
         if (!result.response.ok) {
           throw new Error(
@@ -60,7 +60,7 @@ function HoldingsTable({ showLink = false }) {
     return () => {
       isActive = false;
     };
-  }, [refreshKey]);
+  }, [refreshKey, portfolioId]);
 
   const displayedHoldings = showLink
     ? [...holdings]
@@ -135,7 +135,7 @@ function HoldingsTable({ showLink = false }) {
 
       {showLink && (
         <Link
-          to="/holdings"
+          to={`/portfolios/${portfolioId}/holdings`}
           className="text-link"
         >
           View All Holdings

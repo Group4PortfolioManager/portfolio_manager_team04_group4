@@ -57,6 +57,34 @@ async function getPortfolio(portfolioId) {
   );
 }
 
+async function getPortfolios() {
+  return fetchJson(`${API_BASE_URL}/portfolios`);
+}
+
+async function createPortfolio(portfolioName) {
+  return fetchWithJsonFallback(
+    `${API_BASE_URL}/portfolios`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        portfolio_name: portfolioName,
+      }),
+    }
+  );
+}
+
+async function deletePortfolio(portfolioId) {
+  return fetchWithJsonFallback(
+    `${API_BASE_URL}/portfolios/${portfolioId}`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
 async function getHoldings(portfolioId) {
   return fetchJson(
     `${API_BASE_URL}/portfolios/${portfolioId}/holdings`
@@ -176,6 +204,9 @@ async function withdrawCash(
 
 export {
   fetchJson,
+  getPortfolios,
+  createPortfolio,
+  deletePortfolio,
   getPortfolio,
   getPortfolioPerformance,
   getHoldings,

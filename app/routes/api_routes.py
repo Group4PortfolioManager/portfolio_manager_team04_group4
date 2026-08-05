@@ -50,6 +50,66 @@ def get_portfolios():
         }, 500
 
 
+@api_bp.route("/portfolios", methods=["POST"])
+def create_portfolio():
+    data = request.get_json(silent=True) or {}
+
+    portfolio_name = str(
+        data.get("portfolio_name") or ""
+    ).strip()
+
+    if not portfolio_name:
+        return {
+            "error": "portfolio_name is required"
+        }, 400
+
+    if len(portfolio_name) > 100:
+        return {
+            "error": "portfolio_name is too long"
+        }, 400
+
+    cash_balance = data.get("cash_balance", 0)
+
+    try:
+        cash_balance_decimal = Decimal(
+            str(cash_balance)
+        )
+    except (
+        InvalidOperation,
+        TypeError,
+        ValueError,
+    ):
+        return {
+            "error": "cash_balance must be a valid number"
+        }, 400
+
+    if cash_balance_decimal < 0:
+        return {
+            "error": "cash_balance cannot be negative"
+        }, 400
+
+    try:
+        created_portfolio = database_service.add_portfolio(
+            {
+                "portfolio_name": portfolio_name,
+                "cash_balance": cash_balance_decimal,
+            }
+        )
+
+        return created_portfolio, 201
+
+    except ValueError as error:
+        return {"error": str(error)}, 400
+
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to create portfolio",
+            "details": str(error),
+        }, 500
+
+
 @api_bp.route(
     "/portfolios/<int:portfolio_id>",
     methods=["GET"],
@@ -88,6 +148,60 @@ def get_portfolio(portfolio_id):
 
         return {
             "error": "Unable to load portfolio",
+            "details": str(error),
+        }, 500
+
+
+@api_bp.route(
+    "/portfolios/<int:portfolio_id>",
+    methods=["DELETE"],
+)
+def delete_portfolio(portfolio_id):
+    try:
+        portfolio = database_service.get_portfolio_by_id(
+            portfolio_id
+        )
+
+        if portfolio is None:
+            return {"error": "Portfolio not found"}, 404
+
+        summary = database_service.get_portfolio_summary(
+            portfolio_id
+        )
+
+        if summary is None:
+            return {
+                "error": "Portfolio summary not found"
+            }, 404
+
+        total_value = Decimal(
+            str(summary.get("total_value") or 0)
+        )
+
+        if total_value.copy_abs() > Decimal("0.0001"):
+            return {
+                "error": (
+                    "Portfolio can be removed only when "
+                    "its total value is $0."
+                )
+            }, 400
+
+        deleted = database_service.delete_portfolio_by_id(
+            portfolio_id
+        )
+
+        if not deleted:
+            return {"error": "Portfolio not found"}, 404
+
+        return {
+            "message": "Portfolio deleted successfully"
+        }, 200
+
+    except Exception as error:
+        traceback.print_exc()
+
+        return {
+            "error": "Unable to delete portfolio",
             "details": str(error),
         }, 500
 
