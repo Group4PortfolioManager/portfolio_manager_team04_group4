@@ -95,7 +95,7 @@ An example is available in the `.env.example` file in the repository.
 ### Starting the App
 First, run this command from the root repository to start the backend:
 ```sh
-python -m flask --app app.main
+python -m flask --app app.main run
 ```
 
 The link of the backend API will be given in the terminal (Ex: http://127.0.0.1:3000)
