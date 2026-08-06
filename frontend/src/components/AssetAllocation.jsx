@@ -77,7 +77,10 @@ function AssetAllocation({
             ))}
           </Pie>
           <Tooltip
-            formatter={(value) => [`${value}%`, "Allocation"]}
+            formatter={(value, _name, entry) => [
+              `${value}%`,
+              entry?.payload?.type || "Asset",
+            ]}
             contentStyle={{ background: "#131824", border: "1px solid #232a3a", borderRadius: 8, color: "#e7e9ee" }}
             labelStyle={{ color: "#8891a3" }}
           />
