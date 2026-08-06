@@ -8,10 +8,6 @@ This is a repo for the CSF project with Group 4.
 </p>
 
 <picture>
-<<<<<<< HEAD
-=======
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/MainImage.PNG">
->>>>>>> 6e0996f8914142186b179c5badf94df6269afb2a
   <img alt="PortFolio Dashboard" width="100%" src="./docs/images/MainImage.PNG">
 </picture>
 
@@ -87,7 +83,6 @@ pip install <PACKAGE_NAME>
 Ex: To install Flask, you would run this command: `pip install Flask`
 
 ### Envirorment Variables
-
 Create a `.env` file at the root of the project and set these values:
 
 |Variable|Value|
@@ -124,7 +119,6 @@ python -m pytest --cov=app --cov-report=term-missing -q
 ```
 
 ## Screenshots
-<<<<<<< HEAD
 <table>
   <tr>
     <td width="50%">
@@ -183,8 +177,6 @@ python -m pytest --cov=app --cov-report=term-missing -q
     </td>
   </tr>
 </table>
-=======
->>>>>>> 6e0996f8914142186b179c5badf94df6269afb2a
 
 ## License
 MIT.
