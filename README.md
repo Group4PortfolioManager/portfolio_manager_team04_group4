@@ -9,7 +9,7 @@ This is a repo for the CSF project with Group 4.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./docs/images/MainImage.PNG">
-  <img alt="PortFolio Dashboard" height="23" src="./docs/images/MainImage.PNG">
+  <img alt="PortFolio Dashboard" width="100%" src="./docs/images/MainImage.PNG">
 </picture>
 
 ## Overview
