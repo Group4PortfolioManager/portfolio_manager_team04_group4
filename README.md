@@ -4,6 +4,7 @@ This is a repo for the CSF project with Group 4.
 
 <p align="center">
   <strong>An open-source, portfolio manager.</strong>
+  Authors: Ihsane Majdoubi, Nate Wooster, Yvehenry Julsain
 </p>
 
 <picture>
