@@ -10,7 +10,7 @@ This is a repo for the CSF project with Group 4.
 
 ## Overview
 ### Description
-***TODO***
+PortFolio is a full-stack investment portfolio manager that lets users track and manage their holdings across stocks, bonds, and cryptocurrencies in one place. It connects to live market data through the Yahoo Finance API to price holdings in real time, letting users buy and sell assets, deposit or withdraw cash, and manage multiple portfolios side by side. A dashboard visualizes asset allocation, portfolio performance over time, and per-holding profit/loss, giving users a clear, up-to-date view of how their investments are doing.
 
 ### Features
 A user is able to:
@@ -34,12 +34,12 @@ This project is mostly coded in Python for the backend and Javascript, HTML, and
 ### Layout
 The application is separated into 4 major sections:
 <table>
-<tbody>
-<tr><td><code>app</code></td><td>Holds database, backend API routes, input validation (security), and services</td></tr>
-<tr><td><code>scripts</code></td><td>Holds the scripts needed to initialize and connect the database</td></tr>
-<tr><td><code>frontend</code></td><td>Holds the code to render the portfolio application</td></tr>
-<tr><td><code>tests</code></td><td>Holds the code to test the multiple operations performed by the backend</td></tr>
-</tbody>
+  <tbody>
+    <tr><td><code>app</code></td><td>Holds database, backend API routes, input validation (security), and services</td></tr>
+    <tr><td><code>scripts</code></td><td>Holds the scripts needed to initialize and connect the database</td></tr>
+    <tr><td><code>frontend</code></td><td>Holds the code to render the portfolio application</td></tr>
+    <tr><td><code>tests</code></td><td>Holds the code to test the multiple operations performed by the backend</td></tr>
+  </tbody>
 </table>
 
 Important Files/Folders:
@@ -95,7 +95,7 @@ An example is available in the `.env.example` file in the repository.
 ### Starting the App
 First, run this command from the root repository to start the backend:
 ```sh
-python -m app.main
+python -m flask --app app.main
 ```
 
 The link of the backend API will be given in the terminal (Ex: http://127.0.0.1:3000)
